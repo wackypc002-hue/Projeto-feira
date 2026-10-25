@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ARIADNE — Análise Estatística & Inteligência Financeira</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: {
+                colors: { obsidian: {950:'#080c14',900:'#0f172a',800:'#1e293b',700:'#334155'},
+                    violetAccent:'#8b5cf6', cyanAccent:'#06b6d4', emeraldAccent:'#10b981',
+                    amberAccent:'#f59e0b', roseAccent:'#f43f5e' },
+                fontFamily: { sans: ['Inter', 'sans-serif'] }
+            }}
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family:'Inter',sans-serif; background:#080c14; color:#f3f4f6; -webkit-tap-highlight-color:transparent; }
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:#080c14; }
+        ::-webkit-scrollbar-thumb { background:#1e293b; border-radius:4px; }
+        .glass-card { background:rgba(15,23,42,.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08); }
+        .touch-target { min-height:44px; min-width:44px; }
+    </style>
+</head>
+<body class="min-h-screen pb-16">
+
+<header class="sticky top-0 z-40 bg-obsidian-950/90 backdrop-blur-md border-b border-gray-800/80 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-violet-500/20 text-white">
+                <i class="fa-solid fa-diagram-project text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white leading-tight flex items-center gap-2">
+                    ARIADNE
+                    <span id="importBadge" class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span> Leitor de .CSV
+                    </span>
+                </h1>
+                <p class="text-[10px] text-gray-400 hidden sm:block">Inteligência Estatística & Análise Avançada de Dados</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="downloadAriadnePDF()" id="btnDownloadPdf" class="touch-target px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-pdf text-emerald-400"></i><span class="hidden md:inline">Baixar Relatório</span> PDF
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-3 sm:px-6 pt-4 space-y-5">
+
+    <section class="glass-card rounded-2xl p-4 sm:p-5 border border-violet-500/20 shadow-xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-file-csv text-violet-400"></i>
+                <h2 class="text-sm font-bold uppercase tracking-wider text-violet-400">Importação de Dados (.CSV)</h2>
+            </div>
+        </div>
+        <div id="importFileContainer" class="border-2 border-dashed border-gray-700 hover:border-violet-500/60 rounded-xl p-6 text-center transition cursor-pointer bg-obsidian-950/60" onclick="document.getElementById('csvInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+            <input type="file" id="csvInput" accept=".csv, text/csv" class="hidden" onchange="handleFileSelect(event)">
+            <div class="w-12 h-12 rounded-full bg-violet-500/10 text-violet-400 flex items-center justify-center mx-auto mb-2 text-xl"><i class="fa-solid fa-file-csv"></i></div>
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider">Arraste e solte o arquivo .CSV do Salomon aqui</h3>
+            <p class="text-[11px] text-gray-400 mt-1">Ou clique para selecionar o arquivo no seu dispositivo</p>
+            <span id="uploadedFileName" class="inline-block mt-3 text-xs font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 hidden">Nenhum arquivo carregado</span>
+        </div>
+        <div id="csvMetaBox" class="mt-3 p-2.5 bg-violet-500/5 border border-violet-500/20 rounded-lg text-[11px] text-violet-300 hidden">
+            <i class="fa-solid fa-circle-info mr-1"></i> <span id="csvMetaText">—</span>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-cyan-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Faturamento Processado</span>
+            <div class="mt-2"><span id="statFaturamento" class="text-lg sm:text-xl font-extrabold text-white">R$ 0,00</span><p id="statCenarioBadge" class="text-[10px] text-cyan-400 mt-0.5">Cenário: 100%</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-rose-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Custos Totais</span>
+            <div class="mt-2"><span id="statCustos" class="text-lg sm:text-xl font-extrabold text-rose-400">R$ 0,00</span><p class="text-[10px] text-gray-500 mt-0.5">Consolidado</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Lucro Líquido</span>
+            <div class="mt-2"><span id="statLucro" class="text-lg sm:text-xl font-extrabold text-emerald-400">R$ 0,00</span><p id="statMargem" class="text-[10px] text-emerald-500 mt-0.5">Margem: 0,0%</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-violet-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Total de Produtos</span>
+            <div class="mt-2"><span id="statTotalProds" class="text-lg sm:text-xl font-extrabold text-violet-400">0 un</span><p class="text-[10px] text-gray-500 mt-0.5">Itens analisados</p></div>
+        </div>
+    </section>
+
+    <section class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-violet-400"></i>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">Produtos Extraídos do CSV</h3>
+            </div>
+            <span id="tableSummaryBadge" class="text-xs text-gray-400">Aguardando arquivo...</span>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-gray-800">
+            <table class="w-full text-left text-xs text-gray-300">
+                <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase tracking-wider border-b border-gray-800">
+                    <tr>
+                        <th class="p-3">Produto</th>
+                        <th class="p-3 text-center">CUD (R$)</th>
+                        <th class="p-3 text-center">Preço (R$)</th>
+                        <th class="p-3 text-center">Qtd Projetada</th>
+                        <th class="p-3 text-right">Faturamento Total</th>
+                    </tr>
+                </thead>
+                <tbody id="csvProductsTable" class="divide-y divide-gray-800/60 bg-obsidian-900/50">
+                    <tr><td colspan="5" class="p-6 text-center text-gray-500 italic">Nenhum arquivo .CSV importado ainda. Faça o upload acima para visualizar as estatísticas.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800">
+            <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-violet-400"></i> Distribuição Financeira (.CSV)</h3>
+            <div class="relative h-60 sm:h-72 w-full flex items-center justify-center"><canvas id="chartAriadnePie"></canvas></div>
+        </div>
+        <div class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800">
+            <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-column text-cyan-400"></i> Faturamento por Produto</h3>
+            <div class="relative h-60 sm:h-72 w-full"><canvas id="chartAriadneBar"></canvas></div>
+        </div>
+    </section>
+</main>
+
+<div id="toast" class="fixed bottom-4 right-4 z-50 translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-obsidian-900 border border-violet-500/40 text-violet-300 text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i><span id="toastMsg">Notificação</span>
+</div>
+
+<script>
+let ariadneData = { scenario: 100, leftoverRate: 0, faturamento: 0, custos: 0, lucro: 0, products: [] };
+let chartPie = null, chartBar = null;
+
+const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(val || 0);
+const formatPercent = (val) => (val || 0).toFixed(1).replace('.', ',') + '%';
+
+window.addEventListener('DOMContentLoaded', () => { initAriadneCharts(); });
+
+// ===== DRAG & DROP =====
+function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('importFileContainer').classList.add('border-violet-500'); }
+function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('importFileContainer').classList.remove('border-violet-500'); }
+function handleFileDrop(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('importFileContainer').classList.remove('border-violet-500'); const files = e.dataTransfer.files; if (files.length > 0) processCSVFile(files[0]); }
+function handleFileSelect(e) { const files = e.target.files; if (files.length > 0) processCSVFile(files[0]); }
+
+// ===== CSV PARSER =====
+function processCSVFile(file) {
+    if (!file.name.toLowerCase().endsWith('.csv')) { showToast('Por favor, selecione um arquivo .CSV válido.'); return; }
+    showToast('Lendo arquivo .CSV...');
+    const reader = new FileReader();
+    reader.onload = function(evt) { parseAriadneCSV(evt.target.result, file.name); };
+    reader.readAsText(file, 'UTF-8');
+}
+
+/* =====================================================
+   parseMoney CORRIGIDO (v2.1)
+   Aceita: "R$ 2.20" | "R$ 2,20" | "R$ 1.234,56" | "R$ 1,234.56"
+   ===================================================== */
+function parseMoney(str) {
+    if (str === null || str === undefined || str === '') return 0;
+    let s = String(str).replace(/[^\d,.-]/g, '').trim();
+    if (!s) return 0;
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    if (lastComma > lastDot && lastComma !== -1) {
+        // Formato BR: 1.234,56
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else if (lastDot !== -1) {
+        // Formato US: 1,234.56 ou 2.20
+        s = s.replace(/,/g, '');
+    }
+    return parseFloat(s) || 0;
+}
+
+function parseAriadneCSV(csvText, fileName) {
+    try {
+        const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        let scenario = 100, leftoverRate = 0, faturamento = 0, custos = 0, lucro = 0;
+        let products = [], inProductTable = false;
+
+        lines.forEach(line => {
+            if (line.includes('Cenário de Vendas Aplicado:')) {
+                const m = line.match(/(\d+)%/); if (m) scenario = parseInt(m[1]);
+            }
+            if (line.includes('Taxa de Sobra de Produtos:')) {
+                const m = line.match(/(\d+(?:[.,]\d+)?)%/); if (m) leftoverRate = parseFloat(m[1].replace(',', '.'));
+            }
+            if (line.startsWith('R$') && line.includes('|')) {
+                const parts = line.split('|').map(p => p.trim());
+                if (parts.length >= 3) {
+                    faturamento = parseMoney(parts[0]);
+                    custos = parseMoney(parts[1]);
+                    lucro = parseMoney(parts[2]);
+                }
+            }
+            if (line.includes('PRODUTO | CUD | PREÇO')) { inProductTable = true; return; }
+            if (inProductTable && line.includes('|')) {
+                const parts = line.split('|').map(p => p.trim());
+                if (parts.length >= 5) {
+                    products.push({
+                        name: parts[0],
+                        cud: parseMoney(parts[1]),
+                        price: parseMoney(parts[2]),
+                        qty: parseInt(parts[3]) || 0,
+                        revenue: parseMoney(parts[4])
+                    });
+                }
+            }
+        });
+
+        ariadneData = { scenario, leftoverRate, faturamento, custos, lucro, products };
+
+        const badge = document.getElementById('uploadedFileName');
+        badge.innerText = `Arquivo: ${fileName}`;
+        badge.classList.remove('hidden');
+
+        const metaBox = document.getElementById('csvMetaBox');
+        if (leftoverRate > 0) {
+            metaBox.classList.remove('hidden');
+            document.getElementById('csvMetaText').innerHTML = `Taxa de Sobra aplicada: <strong>${leftoverRate}%</strong> — o CUD já é o <strong>CUD Efetivo</strong> (inclui rateio de sobra).`;
+        } else {
+            metaBox.classList.add('hidden');
+        }
+
+        updateAriadneDashboard();
+        showToast('Arquivo .CSV processado com sucesso!');
+    } catch (err) {
+        console.error("Erro ao analisar o CSV:", err);
+        showToast('Erro ao ler a estrutura do arquivo .CSV.');
+    }
+}
+
+// ===== DASHBOARD =====
+function updateAriadneDashboard() {
+    document.getElementById('statFaturamento').innerText = formatCurrency(ariadneData.faturamento);
+    document.getElementById('statCustos').innerText = formatCurrency(ariadneData.custos);
+    document.getElementById('statLucro').innerText = formatCurrency(ariadneData.lucro);
+    document.getElementById('statCenarioBadge').innerText = `Cenário: ${ariadneData.scenario}%`;
+    const margemPct = ariadneData.faturamento > 0 ? ((ariadneData.lucro / ariadneData.faturamento) * 100) : 0;
+    document.getElementById('statMargem').innerText = `Margem: ${formatPercent(margemPct)}`;
+    document.getElementById('statTotalProds').innerText = `${ariadneData.products.length} un`;
+
+    const tableBody = document.getElementById('csvProductsTable');
+    document.getElementById('tableSummaryBadge').innerText = `${ariadneData.products.length} produtos importados`;
+
+    if (ariadneData.products.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-500 italic">Nenhum produto encontrado no arquivo .CSV.</td></tr>`;
+    } else {
+        tableBody.innerHTML = ariadneData.products.map(p => `
+            <tr class="hover:bg-obsidian-900/80 transition">
+                <td class="p-3 font-semibold text-white">${p.name}</td>
+                <td class="p-3 text-center text-gray-300">${formatCurrency(p.cud)}</td>
+                <td class="p-3 text-center text-gray-300">${formatCurrency(p.price)}</td>
+                <td class="p-3 text-center font-bold text-cyan-400">${p.qty} un</td>
+                <td class="p-3 text-right font-bold text-emerald-400">${formatCurrency(p.revenue)}</td>
+            </tr>
+        `).join('');
+    }
+    updateAriadneCharts();
+}
+
+// ===== CHARTS =====
+function initAriadneCharts() {
+    chartPie = new Chart(document.getElementById('chartAriadnePie').getContext('2d'), {
+        type: 'doughnut',
+        data: { labels: ['Custos Totais', 'Lucro Líquido'],
+            datasets: [{ data: [0,0], backgroundColor: ['#f43f5e','#10b981'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } } }, cutout: '68%' }
+    });
+    chartBar = new Chart(document.getElementById('chartAriadneBar').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'Faturamento (R$)', data: [], backgroundColor: '#8b5cf6', borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false,
+            scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+                      y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } },
+            plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } } } }
+    });
+}
+function updateAriadneCharts() {
+    if (!chartPie || !chartBar) return;
+    chartPie.data.datasets[0].data = [Math.max(0, ariadneData.custos), Math.max(0, ariadneData.lucro)];
+    chartPie.update();
+    chartBar.data.labels = ariadneData.products.map(p => p.name);
+    chartBar.data.datasets[0].data = ariadneData.products.map(p => p.revenue);
+    chartBar.update();
+}
+
+// ===== PDF =====
+function downloadAriadnePDF() {
+    if (ariadneData.products.length === 0) { showToast('Importe um arquivo .CSV antes de gerar o PDF.'); return; }
+    showToast('Compilando relatório em PDF...');
+
+    const pieImage = chartPie ? chartPie.toBase64Image() : '';
+    const barImage = chartBar ? chartBar.toBase64Image() : '';
+    const margemPct = ariadneData.faturamento > 0 ? ((ariadneData.lucro / ariadneData.faturamento) * 100) : 0;
+
+    const pontosBons = [], pontosCriticos = [];
+    if (ariadneData.lucro > 0) pontosBons.push(`Operação lucrativa com resultado positivo de ${formatCurrency(ariadneData.lucro)} e margem líquida de ${formatPercent(margemPct)}.`);
+    const prodsLucrativos = ariadneData.products.filter(p => p.price > p.cud && p.revenue > 0);
+    if (prodsLucrativos.length > 0) {
+        const top = [...prodsLucrativos].sort((a,b) => b.revenue - a.revenue)[0];
+        pontosBons.push(`Destaque: "${top.name}" com faturamento de ${formatCurrency(top.revenue)} (${top.qty} un).`);
+    }
+    if (ariadneData.faturamento > 0 && ariadneData.custos < ariadneData.faturamento) pontosBons.push(`Receita cobre 100% dos custos no cenário de ${ariadneData.scenario}%.`);
+
+    if (ariadneData.lucro < 0) pontosCriticos.push(`Operação em DÉFICIT com prejuízo de ${formatCurrency(ariadneData.lucro)}.`);
+    ariadneData.products.filter(p => p.price <= p.cud && p.qty > 0).forEach(p => {
+        pontosCriticos.push(`"${p.name}" tem preço (${formatCurrency(p.price)}) ≤ custo efetivo (${formatCurrency(p.cud)}). Reajuste urgente.`);
+    });
+    ariadneData.products.filter(p => p.qty === 0).forEach(p => {
+        pontosCriticos.push(`"${p.name}" está com quantidade zerada no cenário atual.`);
+    });
+    if (ariadneData.custos >= ariadneData.faturamento && ariadneData.faturamento > 0) {
+        pontosCriticos.push(`Custos consomem ${((ariadneData.custos / ariadneData.faturamento) * 100).toFixed(1)}% do faturamento.`);
+    }
+    if (ariadneData.leftoverRate > 0) {
+        pontosBons.push(`Modelo considera taxa de sobra de ${ariadneData.leftoverRate}% (custo redistribuído no CUD efetivo).`);
+    }
+
+    let diagnosticoHTML = '';
+    if (pontosBons.length === 0) {
+        diagnosticoHTML += `<div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; margin-bottom:16px;">
+            <h4 style="margin:0 0 6px 0; font-size:12px; color:#991b1b; font-weight:800; text-transform:uppercase;">⚠️ Situação Crítica</h4>
+            <p style="margin:0; font-size:10px; color:#7f1d1d;">Não foram identificados pontos positivos. Revise precificação e custos antes de operar.</p>
+        </div>`;
+    } else {
+        diagnosticoHTML += `<div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin-bottom:12px;">
+            <h4 style="margin:0 0 6px 0; font-size:11px; color:#166534; font-weight:800; text-transform:uppercase;">✅ Pontos Fortes</h4>
+            <ul style="margin:0; padding-left:16px; font-size:10px; color:#14532d; line-height:1.4;">${pontosBons.map(p => `<li>${p}</li>`).join('')}</ul>
+        </div>`;
+    }
+    if (pontosCriticos.length > 0) {
+        diagnosticoHTML += `<div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; padding:12px; margin-bottom:16px;">
+            <h4 style="margin:0 0 6px 0; font-size:11px; color:#9f1239; font-weight:800; text-transform:uppercase;">🚨 Pontos Críticos</h4>
+            <ul style="margin:0; padding-left:16px; font-size:10px; color:#881337; line-height:1.4;">${pontosCriticos.map(p => `<li>${p}</li>`).join('')}</ul>
+        </div>`;
+    }
+
+    const productRows = ariadneData.products.map(p => `
+        <tr style="border-bottom:1px solid #e5e7eb; font-size:10px;">
+            <td style="padding:6px; font-weight:bold;">${p.name}</td>
+            <td style="padding:6px; text-align:center;">R$ ${p.cud.toFixed(2)}</td>
+            <td style="padding:6px; text-align:center;">R$ ${p.price.toFixed(2)}</td>
+            <td style="padding:6px; text-align:center;">${p.qty} un</td>
+            <td style="padding:6px; text-align:right; font-weight:bold;">R$ ${p.revenue.toFixed(2)}</td>
+        </tr>`).join('');
+
+    const pdfContainer = document.createElement('div');
+    pdfContainer.style.cssText = 'padding:20px; font-family:Helvetica,Arial,sans-serif; color:#111827; background:#fff;';
+    pdfContainer.innerHTML = `
+        <div style="border-bottom:2px solid #8b5cf6; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h1 style="margin:0; color:#080c14; font-size:18px; font-weight:900;">ARIADNE — Relatório de Inteligência Financeira</h1>
+                <p style="margin:2px 0 0 0; color:#6b7280; font-size:10px;">Análise Estatística & Diagnóstico de Desempenho</p>
+            </div>
+            <div style="text-align:right;">
+                <span style="background:#f3e8ff; color:#6b21a8; font-size:10px; font-weight:800; padding:4px 8px; border-radius:6px; border:1px solid #d8b4fe;">Cenário: ${ariadneData.scenario}%</span>
+                ${ariadneData.leftoverRate > 0 ? `<br><span style="background:#ffe4e6; color:#9f1239; font-size:9px; font-weight:800; padding:3px 6px; border-radius:5px; border:1px solid #fecdd3; display:inline-block; margin-top:4px;">Sobra: ${ariadneData.leftoverRate}%</span>` : ''}
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                <span style="font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase;">Faturamento</span>
+                <div style="font-size:14px; font-weight:800; color:#0284c7; margin-top:2px;">R$ ${ariadneData.faturamento.toFixed(2)}</div>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                <span style="font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase;">Custos Totais</span>
+                <div style="font-size:14px; font-weight:800; color:#dc2626; margin-top:2px;">R$ ${ariadneData.custos.toFixed(2)}</div>
+            </div>
+            <div style="background:${ariadneData.lucro >= 0 ? '#f0fdf4' : '#fef2f2'}; border:1px solid ${ariadneData.lucro >= 0 ? '#86efac' : '#fca5a5'}; border-radius:8px; padding:10px;">
+                <span style="font-size:9px; color:${ariadneData.lucro >= 0 ? '#166534' : '#991b1b'}; font-weight:700; text-transform:uppercase;">Lucro Líquido</span>
+                <div style="font-size:14px; font-weight:800; color:${ariadneData.lucro >= 0 ? '#15803d' : '#b91c1c'}; margin-top:2px;">R$ ${ariadneData.lucro.toFixed(2)}</div>
+            </div>
+        </div>
+        <h3 style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">1. Avaliação Estratégica</h3>
+        ${diagnosticoHTML}
+        <h3 style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">2. Representação Visual</h3>
+        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px;">
+            <div style="text-align:center;"><span style="font-size:9px; font-weight:700; color:#475569; display:block; margin-bottom:6px;">Custos vs Lucro</span><img src="${pieImage}" style="max-height:150px; width:auto; margin:0 auto; display:block;" /></div>
+            <div style="text-align:center;"><span style="font-size:9px; font-weight:700; color:#475569; display:block; margin-bottom:6px;">Faturamento por Produto</span><img src="${barImage}" style="max-height:150px; width:auto; margin:0 auto; display:block;" /></div>
+        </div>
+        <h3 style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">3. Tabela Detalhada</h3>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+            <thead><tr style="background:#0f172a; color:#fff; font-size:9px; text-transform:uppercase;">
+                <th style="padding:6px; text-align:left;">Produto</th>
+                <th style="padding:6px; text-align:center;">CUD</th>
+                <th style="padding:6px; text-align:center;">Preço</th>
+                <th style="padding:6px; text-align:center;">Qtd</th>
+                <th style="padding:6px; text-align:right;">Faturamento</th>
+            </tr></thead>
+            <tbody>${productRows}</tbody>
+        </table>
+        <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:8px; font-size:9px; color:#94a3b8; text-align:center;">
+            Relatório gerado pelo ARIADNE v2.1 em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}.
+        </div>`;
+    document.body.appendChild(pdfContainer);
+    html2pdf().set({ margin:[8,8,8,8], filename:`Relatorio_ARIADNE_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:{ type:'jpeg', quality:0.98 }, html2canvas:{ scale:2, useCORS:true },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' } })
+        .from(pdfContainer).save().then(() => {
+            document.body.removeChild(pdfContainer); showToast('PDF exportado com sucesso!');
+        }).catch(err => { console.error(err); showToast('Erro ao gerar PDF.'); });
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').innerText = msg;
+    toast.classList.remove('translate-y-10', 'opacity-0');
+    setTimeout(() => toast.classList.add('translate-y-10', 'opacity-0'), 2500);
+}
+</script>
+</body>
+</html>

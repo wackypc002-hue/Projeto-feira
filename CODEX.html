@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CODEX — Sistema de Livros Contábeis</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+        colors: { obsidian: {950:'#080c14',900:'#0f172a',800:'#1e293b',700:'#334155'},
+            electric:'#3b82f6', neonCyan:'#06b6d4', emeraldAccent:'#10b981',
+            amberAccent:'#f59e0b', crimsonAccent:'#ef4444', violetAccent:'#8b5cf6' },
+        fontFamily: { sans: ['Inter', 'sans-serif'] }
+    }}
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+    body { font-family:'Inter',sans-serif; background:#080c14; color:#f3f4f6; -webkit-tap-highlight-color:transparent; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:#080c14; }
+    ::-webkit-scrollbar-thumb { background:#1e293b; border-radius:4px; }
+    .glass-card { background:rgba(15,23,42,.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08); }
+    .touch-target { min-height:44px; min-width:44px; }
+    .book-card { transition: all .2s ease; cursor:pointer; }
+    .book-card:hover { border-color: rgba(139,92,246,.5); transform: translateY(-2px); }
+    .book-card.selected { border-color:#8b5cf6; background: rgba(139,92,246,.08); box-shadow: 0 0 0 2px rgba(139,92,246,.3); }
+    .tab-active { color:#8b5cf6; border-bottom-color:#8b5cf6; }
+    .tab-inactive { color:#9ca3af; border-bottom-color:transparent; }
+    .badge-type { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; }
+    input[type=range] { -webkit-appearance:none; background:#1e293b; border-radius:8px; height:6px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; height:18px; width:18px; border-radius:50%; background:#8b5cf6; cursor:pointer; border:2px solid #fff; }
+    .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+</style>
+</head>
+<body class="min-h-screen pb-24">
+
+<!-- ============ HEADER ============ -->
+<header class="sticky top-0 z-40 bg-obsidian-950/95 backdrop-blur-md border-b border-gray-800/80 px-3 py-2.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-violet-500/20 text-white">
+                <i class="fa-solid fa-book-bookmark text-base"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold tracking-tight text-white leading-tight">CODEX</h1>
+                <p class="text-[9px] text-gray-400 hidden sm:block">Sistema de Livros Contábeis</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <button onclick="triggerFileInput()" class="touch-target px-2.5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-md shadow-violet-500/20 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Importar</span>
+            </button>
+            <button onclick="exportBackup()" class="touch-target px-2.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 transition" title="Backup JSON">
+                <i class="fa-solid fa-download"></i><span class="hidden md:inline">Backup</span>
+            </button>
+            <button onclick="document.getElementById('restoreInput').click()" class="touch-target px-2.5 py-2 text-xs font-semibold rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 flex items-center gap-1 transition" title="Restaurar JSON">
+                <i class="fa-solid fa-upload"></i><span class="hidden md:inline">Restaurar</span>
+            </button>
+            <input type="file" id="restoreInput" accept=".json" class="hidden" onchange="restoreBackup(event)">
+            <input type="file" id="csvInput" accept=".csv,text/csv" multiple class="hidden" onchange="handleFileSelect(event)">
+        </div>
+    </div>
+</header>
+
+<!-- ============ TABS ============ -->
+<nav class="sticky top-[57px] z-30 bg-obsidian-950/95 backdrop-blur-md border-b border-gray-800/80">
+    <div class="max-w-7xl mx-auto flex">
+        <button onclick="switchTab('library')" id="tabLibrary" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 tab-active transition">
+            <i class="fa-solid fa-book mr-1.5"></i>Biblioteca
+        </button>
+        <button onclick="switchTab('compare')" id="tabCompare" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 tab-inactive transition">
+            <i class="fa-solid fa-code-compare mr-1.5"></i>Comparar <span id="compareCount" class="hidden text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded ml-1">0</span>
+        </button>
+        <button onclick="switchTab('razao')" id="tabRazao" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider border-b-2 tab-inactive transition">
+            <i class="fa-solid fa-sitemap mr-1.5"></i>Razão
+        </button>
+    </div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-3 sm:px-6 pt-4">
+
+    <!-- ============================================================ -->
+    <!-- VIEW: BIBLIOTECA                                             -->
+    <!-- ============================================================ -->
+    <section id="viewLibrary" class="space-y-4">
+
+        <!-- Import dropzone -->
+        <div onclick="triggerFileInput()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
+             id="importZone" class="glass-card rounded-2xl p-5 border-2 border-dashed border-gray-700 hover:border-violet-500/60 text-center transition cursor-pointer">
+            <div class="w-12 h-12 rounded-full bg-violet-500/10 text-violet-400 flex items-center justify-center mx-auto mb-2 text-xl">
+                <i class="fa-solid fa-file-csv"></i>
+            </div>
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider">Importar CSV do Salomon</h3>
+            <p class="text-[11px] text-gray-400 mt-1">Arraste o arquivo ou toque para selecionar · Aceita múltiplos arquivos</p>
+        </div>
+
+        <!-- Filters bar -->
+        <div class="glass-card rounded-xl p-3 space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                    <input type="text" id="filterSearch" placeholder="Buscar título, código ou tag..." oninput="applyFilters()"
+                           class="w-full bg-obsidian-950 border border-gray-800 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:border-violet-500 focus:outline-none">
+                </div>
+                <select id="filterType" onchange="applyFilters()" class="bg-obsidian-950 border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-violet-500 focus:outline-none">
+                    <option value="all">Todos os tipos</option>
+                    <option value="simulacao">Simulação</option>
+                    <option value="realizado">Realizado</option>
+                    <option value="orcamento">Orçamento</option>
+                    <option value="projecao">Projeção</option>
+                    <option value="baseline">Baseline</option>
+                </select>
+                <select id="filterSort" onchange="applyFilters()" class="bg-obsidian-950 border border-gray-800 rounded-lg px-3 py-2 text-xs text-white focus:border-violet-500 focus:outline-none">
+                    <option value="date-desc">Mais recentes primeiro</option>
+                    <option value="date-asc">Mais antigos primeiro</option>
+                    <option value="code-asc">Código (A→Z)</option>
+                    <option value="faturamento-desc">Maior faturamento</option>
+                    <option value="lucro-desc">Maior lucro</option>
+                    <option value="margem-desc">Maior margem</option>
+                </select>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-gray-400 pt-1">
+                <span id="libraryStats">0 livros na biblioteca</span>
+                <button onclick="clearFilters()" class="text-violet-400 hover:text-violet-300 font-semibold">
+                    <i class="fa-solid fa-filter-circle-xmark mr-1"></i>Limpar filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Books grid -->
+        <div id="booksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+
+        <!-- Empty state -->
+        <div id="emptyLibrary" class="glass-card rounded-2xl p-10 text-center hidden">
+            <div class="w-16 h-16 rounded-full bg-gray-800/60 text-gray-500 flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="fa-solid fa-book-open"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white mb-1">Biblioteca vazia</h3>
+            <p class="text-xs text-gray-400 mb-4">Importe um arquivo CSV do Salomon para criar seu primeiro livro contábil.</p>
+            <button onclick="triggerFileInput()" class="px-4 py-2 text-xs font-bold rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition">
+                <i class="fa-solid fa-plus mr-1.5"></i>Importar primeiro livro
+            </button>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VIEW: COMPARAR                                               -->
+    <!-- ============================================================ -->
+    <section id="viewCompare" class="space-y-4 hidden">
+        <div id="compareEmpty" class="glass-card rounded-2xl p-10 text-center">
+            <div class="w-16 h-16 rounded-full bg-gray-800/60 text-gray-500 flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="fa-solid fa-code-compare"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white mb-1">Selecione livros para comparar</h3>
+            <p class="text-xs text-gray-400 mb-4">Volte à Biblioteca e marque o checkbox de pelo menos 2 livros.</p>
+            <button onclick="switchTab('library')" class="px-4 py-2 text-xs font-bold rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i>Ir para Biblioteca
+            </button>
+        </div>
+
+        <div id="compareContent" class="space-y-4 hidden">
+            <div class="glass-card rounded-xl p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-white uppercase tracking-wider"><i class="fa-solid fa-layer-group text-violet-400 mr-1.5"></i>Livros selecionados</span>
+                    <button onclick="clearCompareSelection()" class="text-[10px] text-rose-400 hover:text-rose-300 font-semibold"><i class="fa-solid fa-xmark mr-1"></i>Limpar</button>
+                </div>
+                <div id="compareChips" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <!-- KPI comparison table -->
+            <div class="glass-card rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider"><i class="fa-solid fa-table-columns text-cyan-400 mr-1.5"></i>Balancete Comparativo</h3>
+                    <div class="flex gap-1.5">
+                        <button onclick="exportCompareCSV()" class="px-2 py-1 text-[10px] font-semibold rounded bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30"><i class="fa-solid fa-file-csv mr-1"></i>CSV</button>
+                        <button onclick="exportComparePDF()" class="px-2 py-1 text-[10px] font-semibold rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto rounded-lg border border-gray-800">
+                    <table class="w-full text-xs text-gray-300" id="compareTable">
+                        <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase text-[10px] border-b border-gray-800"></thead>
+                        <tbody class="divide-y divide-gray-800/60 bg-obsidian-900/50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Charts row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="glass-card rounded-2xl p-4">
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-chart-column text-cyan-400 mr-1.5"></i>Faturamento × Custos × Lucro</h3>
+                    <div class="relative h-64"><canvas id="chartCompareValue"></canvas></div>
+                </div>
+                <div class="glass-card rounded-2xl p-4">
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-percent text-emerald-400 mr-1.5"></i>Margem Líquida por Livro</h3>
+                    <div class="relative h-64"><canvas id="chartCompareMargin"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Products comparison -->
+            <div class="glass-card rounded-2xl p-4">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-utensils text-amber-400 mr-1.5"></i>Comparativo de Faturamento por Produto</h3>
+                <div class="overflow-x-auto rounded-lg border border-gray-800">
+                    <table class="w-full text-xs text-gray-300" id="compareProductsTable">
+                        <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase text-[10px] border-b border-gray-800"></thead>
+                        <tbody class="divide-y divide-gray-800/60 bg-obsidian-900/50"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VIEW: RAZÃO                                                  -->
+    <!-- ============================================================ -->
+    <section id="viewRazao" class="space-y-4 hidden">
+        <div class="glass-card rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                <div>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider"><i class="fa-solid fa-sitemap text-amber-400 mr-1.5"></i>Livro Razão de Produtos</h3>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Agregação de todos os produtos em todos os livros da biblioteca</p>
+                </div>
+            </div>
+            <div id="razaoSummary" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-[11px]"></div>
+            <div class="overflow-x-auto rounded-lg border border-gray-800">
+                <table class="w-full text-xs text-gray-300" id="razaoTable">
+                    <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase text-[10px] border-b border-gray-800">
+                        <tr>
+                            <th class="p-2.5 text-left">Produto</th>
+                            <th class="p-2.5 text-center">Nº Livros</th>
+                            <th class="p-2.5 text-center">Qtd Total</th>
+                            <th class="p-2.5 text-center">CUD Médio</th>
+                            <th class="p-2.5 text-center">Preço Médio</th>
+                            <th class="p-2.5 text-center">Margem Média</th>
+                            <th class="p-2.5 text-right">Faturamento Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="razaoTableBody" class="divide-y divide-gray-800/60 bg-obsidian-900/50"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="glass-card rounded-2xl p-4">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-chart-bar text-violet-400 mr-1.5"></i>Faturamento Acumulado por Produto</h3>
+            <div class="relative h-72"><canvas id="chartRazao"></canvas></div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- VIEW: DETALHE                                                -->
+    <!-- ============================================================ -->
+    <section id="viewDetail" class="space-y-4 hidden">
+        <div class="flex items-center gap-2">
+            <button onclick="switchTab('library')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition">
+                <i class="fa-solid fa-arrow-left mr-1"></i>Voltar
+            </button>
+            <div class="flex-1"></div>
+            <button onclick="editActiveBook()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition">
+                <i class="fa-solid fa-pen mr-1"></i>Editar
+            </button>
+            <button onclick="deleteActiveBook()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </div>
+
+        <div id="detailContent" class="space-y-4"></div>
+    </section>
+</main>
+
+<!-- ============ FLOATING COMPARE BUTTON ============ -->
+<div id="floatCompare" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 hidden">
+    <button onclick="switchTab('compare')" class="px-5 py-3 text-sm font-bold rounded-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-2xl shadow-violet-500/40 flex items-center gap-2 transition">
+        <i class="fa-solid fa-code-compare"></i>
+        Comparar <span id="floatCount">0</span>
+    </button>
+</div>
+
+<!-- ============ MODAL: METADADOS DO LIVRO ============ -->
+<div id="modalBook" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-obsidian-900 border border-violet-500/30 rounded-2xl max-w-md w-full p-5 shadow-2xl relative text-gray-200 my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <h3 id="modalBookTitle" class="text-base font-bold text-white">Novo Livro</h3>
+            <button onclick="closeModal('modalBook')" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="bookForm" onsubmit="saveBook(event)" class="mt-4 space-y-3">
+            <input type="hidden" id="editBookId">
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-[10px] font-semibold text-gray-300 mb-1">Código</label>
+                    <input type="text" id="bookCode" required class="w-full bg-obsidian-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:border-violet-500 focus:outline-none font-mono">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-semibold text-gray-300 mb-1">Título</label>
+                    <input type="text" id="bookTitle" required placeholder="Ex: Simulação Cenário 100%" class="w-full bg-obsidian-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:border-violet-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-300 mb-1">Classificação</label>
+                <select id="bookType" class="w-full bg-obsidian-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:border-violet-500 focus:outline-none">
+                    <option value="simulacao">Simulação</option>
+                    <option value="realizado">Realizado</option>
+                    <option value="orcamento">Orçamento</option>
+                    <option value="projecao">Projeção</option>
+                    <option value="baseline">Baseline</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-300 mb-1">Tags (separadas por vírgula)</label>
+                <input type="text" id="bookTags" placeholder="Ex: feira, cenário-pessimista, teste" class="w-full bg-obsidian-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:border-violet-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-[10px] font-semibold text-gray-300 mb-1">Notas</label>
+                <textarea id="bookNotes" rows="2" placeholder="Observações sobre este livro..." class="w-full bg-obsidian-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:border-violet-500 focus:outline-none resize-none"></textarea>
+            </div>
+            <div class="pt-2 flex gap-2">
+                <button type="button" onclick="closeModal('modalBook')" class="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition">Cancelar</button>
+                <button type="submit" class="w-1/2 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500 transition">Salvar Livro</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ MODAL: CONFIRMAÇÃO ============ -->
+<div id="modalConfirm" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3">
+    <div class="bg-obsidian-900 border border-red-500/30 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative text-gray-200 text-center">
+        <div class="w-12 h-12 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center mx-auto mb-3 text-xl">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 id="confirmTitle" class="text-base font-bold text-white">Confirmar?</h3>
+        <p id="confirmMessage" class="text-xs text-gray-400 mt-1">—</p>
+        <div class="mt-5 flex gap-2">
+            <button onclick="closeModal('modalConfirm')" class="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition">Cancelar</button>
+            <button id="confirmActionBtn" class="w-1/2 py-2.5 text-xs font-bold rounded-xl bg-red-600 text-white hover:bg-red-500 transition">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast" class="fixed bottom-20 right-4 z-50 translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-obsidian-900 border border-violet-500/40 text-violet-300 text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 max-w-[90vw]">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMsg">Notificação</span>
+</div>
+
+<script>
+/* ================================================================
+   CODEX — Sistema de Livros Contábeis
+   Estado, persistência e motor de cálculo
+   ================================================================ */
+
+const STORAGE_KEY = 'codex_books_v1';
+
+const BOOK_TYPES = {
+    simulacao: { label: 'Simulação', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: 'fa-flask' },
+    realizado: { label: 'Realizado', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: 'fa-circle-check' },
+    orcamento: { label: 'Orçamento', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: 'fa-file-invoice-dollar' },
+    projecao: { label: 'Projeção', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30', icon: 'fa-chart-line' },
+    baseline: { label: 'Baseline', color: 'text-gray-300', bg: 'bg-gray-500/10', border: 'border-gray-500/30', icon: 'fa-anchor' }
+};
+
+const state = {
+    books: [],
+    selectedForCompare: new Set(),
+    activeBookId: null,
+    filters: { search: '', type: 'all', sort: 'date-desc' },
+    currentTab: 'library'
+};
+
+let chartCompareValue = null;
+let chartCompareMargin = null;
+let chartRazao = null;
+
+/* ========= HELPERS ========= */
+const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(val || 0);
+const formatPercent = (val) => (val || 0).toFixed(1).replace('.', ',') + '%';
+const formatNumber = (val) => new Intl.NumberFormat('pt-BR').format(val || 0);
+const formatDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+const formatDateShort = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+
+/* ========= STORAGE ========= */
+function loadBooks() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) state.books = parsed;
+        }
+    } catch (e) { console.error('Erro ao carregar livros:', e); }
+}
+
+function saveBooks() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.books));
+    } catch (e) {
+        console.error('Erro ao salvar:', e);
+        if (e.name === 'QuotaExceededError') {
+            showToast('Espaço cheio! Exporte um backup e remova livros antigos.');
+        }
+    }
+}
+
+/* ========= AUTO CODE ========= */
+function nextBookCode() {
+    let maxNum = 0;
+    state.books.forEach(b => {
+        const m = (b.code || '').match(/LIV-(\d+)/i);
+        if (m) maxNum = Math.max(maxNum, parseInt(m[1]));
+    });
+    return 'LIV-' + String(maxNum + 1).padStart(3, '0');
+}
+
+/* ========= ENRICH (derived metrics) ========= */
+function enrichBook(book) {
+    const products = book.products || [];
+    const directCost = products.reduce((s, p) => s + ((p.cud || 0) * (p.qty || 0)), 0);
+    const totalUnits = products.reduce((s, p) => s + (p.qty || 0), 0);
+    const indirectCost = Math.max(0, (book.custos || 0) - directCost);
+    const margem = (book.faturamento || 0) > 0 ? ((book.lucro || 0) / book.faturamento) * 100 : 0;
+    const avgPrice = totalUnits > 0 ? (book.faturamento || 0) / totalUnits : 0;
+    const lucroPorUnidade = totalUnits > 0 ? (book.lucro || 0) / totalUnits : 0;
+    const custoPorUnidade = totalUnits > 0 ? (book.custos || 0) / totalUnits : 0;
+    return { ...book, directCost, indirectCost, totalUnits, margem, avgPrice, lucroPorUnidade, custoPorUnidade };
+}
+
+/* ========= VIEW ROUTING ========= */
+function switchTab(tab) {
+    state.currentTab = tab;
+    ['library', 'compare', 'razao', 'detail'].forEach(t => {
+        const view = document.getElementById('view' + t.charAt(0).toUpperCase() + t.slice(1));
+        const tabBtn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (view) view.classList.toggle('hidden', t !== tab);
+        if (tabBtn) {
+            tabBtn.classList.toggle('tab-active', t === tab);
+            tabBtn.classList.toggle('tab-inactive', t !== tab);
+        }
+    });
+    // if detail has no active book, fall back
+    if (tab === 'detail' && !state.activeBookId) return switchTab('library');
+
+    if (tab === 'library') renderLibrary();
+    if (tab === 'compare') renderCompare();
+    if (tab === 'razao') renderRazao();
+    if (tab === 'detail') renderDetail();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ========= IMPORT ========= */
+function triggerFileInput() { document.getElementById('csvInput').click(); }
+
+function handleDragOver(e) {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById('importZone').classList.add('border-violet-500');
+}
+function handleDragLeave(e) {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById('importZone').classList.remove('border-violet-500');
+}
+function handleDrop(e) {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById('importZone').classList.remove('border-violet-500');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+    if (files.length === 0) { showToast('Selecione arquivos .CSV.'); return; }
+    processFiles(files);
+}
+function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length) processFiles(files);
+    e.target.value = '';
+}
+
+function processFiles(files) {
+    let processed = 0;
+    let failed = 0;
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const parsed = parseSalomonCSV(evt.target.result);
+                if (!parsed) throw new Error('Formato inválido');
+                createBookFromParsed(parsed, file.name);
+                processed++;
+            } catch (err) {
+                console.error('Erro ao processar', file.name, err);
+                failed++;
+            }
+            if (processed + failed === files.length) {
+                saveBooks();
+                renderLibrary();
+                showToast(`${processed} livro(s) importado(s)${failed ? ', ' + failed + ' com erro' : ''}.`);
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+}
+
+/* ========= CSV PARSER (robusto) ========= */
+function parseMoney(str) {
+    if (str === null || str === undefined || str === '') return 0;
+    let s = String(str).replace(/[^\d,.-]/g, '').trim();
+    if (!s) return 0;
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    if (lastComma > lastDot && lastComma !== -1) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else if (lastDot !== -1) {
+        s = s.replace(/,/g, '');
+    }
+    return parseFloat(s) || 0;
+}
+
+function parseSalomonCSV(csvText) {
+    const lines = csvText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let scenario = 100, leftoverRate = 0, lossMargin = 0;
+    let faturamento = 0, custos = 0, lucro = 0;
+    let products = [], inTable = false;
+
+    lines.forEach(line => {
+        if (line.includes('Cenário de Vendas Aplicado:')) {
+            const m = line.match(/(\d+)%/); if (m) scenario = parseInt(m[1]);
+        }
+        if (line.includes('Taxa de Sobra de Produtos:')) {
+            const m = line.match(/(\d+(?:[.,]\d+)?)%/); if (m) leftoverRate = parseFloat(m[1].replace(',', '.'));
+        }
+        if (line.includes('Buffer de Imprevistos')) {
+            const m = line.match(/(\d+(?:[.,]\d+)?)%/); if (m) lossMargin = parseFloat(m[1].replace(',', '.'));
+        }
+        if (line.startsWith('R$') && line.includes('|')) {
+            const parts = line.split('|').map(p => p.trim());
+            if (parts.length >= 3 && faturamento === 0) {
+                faturamento = parseMoney(parts[0]);
+                custos = parseMoney(parts[1]);
+                lucro = parseMoney(parts[2]);
+            }
+        }
+        if (line.includes('PRODUTO | CUD | PREÇO')) { inTable = true; return; }
+        if (inTable && line.includes('|')) {
+            const parts = line.split('|').map(p => p.trim());
+            if (parts.length >= 5 && !parts[0].toUpperCase().includes('RELATÓRIO')) {
+                products.push({
+                    name: parts[0],
+                    cud: parseMoney(parts[1]),
+                    price: parseMoney(parts[2]),
+                    qty: parseInt(parts[3].replace(/\D/g, '')) || 0,
+                    revenue: parseMoney(parts[4])
+                });
+            }
+        }
+    });
+
+    if (faturamento === 0 && products.length === 0) return null;
+    return { scenario, leftoverRate, lossMargin, faturamento, custos, lucro, products };
+}
+
+/* ========= CREATE BOOK ========= */
+function createBookFromParsed(parsed, fileName) {
+    const code = nextBookCode();
+    const suggestedType = parsed.scenario < 80 ? 'simulacao' : parsed.scenario > 120 ? 'simulacao' : 'simulacao';
+    const title = fileName.replace(/\.csv$/i, '').replace(/_/g, ' ').slice(0, 60);
+
+    const book = {
+        id: 'bk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        code,
+        title: title || 'Novo Livro',
+        type: suggestedType,
+        tags: [],
+        notes: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        scenario: parsed.scenario,
+        leftoverRate: parsed.leftoverRate,
+        lossMargin: parsed.lossMargin,
+        faturamento: parsed.faturamento,
+        custos: parsed.custos,
+        lucro: parsed.lucro,
+        products: parsed.products
+    };
+    state.books.push(book);
+    return book;
+}
+
+/* ========= FILTERS ========= */
+function applyFilters() {
+    state.filters.search = document.getElementById('filterSearch').value.toLowerCase().trim();
+    state.filters.type = document.getElementById('filterType').value;
+    state.filters.sort = document.getElementById('filterSort').value;
+    renderLibrary();
+}
+function clearFilters() {
+    document.getElementById('filterSearch').value = '';
+    document.getElementById('filterType').value = 'all';
+    document.getElementById('filterSort').value = 'date-desc';
+    applyFilters();
+}
+
+function getFilteredBooks() {
+    let books = [...state.books];
+    const { search, type, sort } = state.filters;
+    if (search) {
+        books = books.filter(b =>
+            (b.title || '').toLowerCase().includes(search) ||
+            (b.code || '').toLowerCase().includes(search) ||
+            (b.tags || []).some(t => t.toLowerCase().includes(search)) ||
+            (b.notes || '').toLowerCase().includes(search)
+        );
+    }
+    if (type !== 'all') books = books.filter(b => b.type === type);
+
+    const sorters = {
+        'date-desc': (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        'date-asc': (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+        'code-asc': (a, b) => (a.code || '').localeCompare(b.code || ''),
+        'faturamento-desc': (a, b) => (b.faturamento || 0) - (a.faturamento || 0),
+        'lucro-desc': (a, b) => (b.lucro || 0) - (a.lucro || 0),
+        'margem-desc': (a, b) => enrichBook(b).margem - enrichBook(a).margem
+    };
+    if (sorters[sort]) books.sort(sorters[sort]);
+    return books;
+}
+
+/* ========= LIBRARY RENDER ========= */
+function renderLibrary() {
+    const grid = document.getElementById('booksGrid');
+    const empty = document.getElementById('emptyLibrary');
+    const books = getFilteredBooks();
+
+    document.getElementById('libraryStats').innerText = `${state.books.length} livro(s) na biblioteca${books.length !== state.books.length ? ` · ${books.length} filtrado(s)` : ''}`;
+
+    if (books.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        empty.querySelector('h3').innerText = state.books.length === 0 ? 'Biblioteca vazia' : 'Nenhum livro encontrado';
+        empty.querySelector('p').innerText = state.books.length === 0
+            ? 'Importe um arquivo CSV do Salomon para criar seu primeiro livro contábil.'
+            : 'Ajuste os filtros para encontrar livros.';
+        updateCompareBadge();
+        return;
+    }
+    empty.classList.add('hidden');
+
+    grid.innerHTML = books.map(b => {
+        const eb = enrichBook(b);
+        const t = BOOK_TYPES[b.type] || BOOK_TYPES.simulacao;
+        const isSelected = state.selectedForCompare.has(b.id);
+        const lucroColor = eb.lucro >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        const margemColor = eb.margem >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        return `
+            <div class="book-card glass-card rounded-xl p-3.5 ${isSelected ? 'selected' : ''}" onclick="openDetail('${b.id}')">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleCompare('${b.id}')" class="w-4 h-4 accent-violet-500 cursor-pointer flex-shrink-0">
+                        <span class="font-mono text-[10px] font-bold text-violet-300 px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 flex-shrink-0">${b.code}</span>
+                        <span class="badge-type ${t.bg} ${t.color} ${t.border} border flex-shrink-0"><i class="fa-solid ${t.icon}"></i>${t.label}</span>
+                    </div>
+                </div>
+                <h4 class="text-sm font-bold text-white line-clamp-2 mb-1">${escapeHtml(b.title)}</h4>
+                <p class="text-[10px] text-gray-500 mb-2">${formatDate(b.createdAt)}</p>
+
+                <div class="grid grid-cols-3 gap-1.5 text-[10px] mb-2.5">
+                    <div class="bg-obsidian-950 rounded-lg p-2 border border-gray-800/60">
+                        <span class="text-gray-500 block text-[9px]">Faturam.</span>
+                        <span class="font-bold text-cyan-400">${formatCurrency(eb.faturamento)}</span>
+                    </div>
+                    <div class="bg-obsidian-950 rounded-lg p-2 border border-gray-800/60">
+                        <span class="text-gray-500 block text-[9px]">Lucro</span>
+                        <span class="font-bold ${lucroColor}">${formatCurrency(eb.lucro)}</span>
+                    </div>
+                    <div class="bg-obsidian-950 rounded-lg p-2 border border-gray-800/60">
+                        <span class="text-gray-500 block text-[9px]">Margem</span>
+                        <span class="font-bold ${margemColor}">${formatPercent(eb.margem)}</span>
+                    </div>
+                </div>
+
+                ${(b.tags && b.tags.length) ? `<div class="flex flex-wrap gap-1 mb-2">${b.tags.slice(0, 3).map(tag => `<span class="text-[9px] text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded">#${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+
+                <div class="flex items-center justify-between text-[10px] text-gray-500 pt-2 border-t border-gray-800/60">
+                    <span><i class="fa-solid fa-cube mr-1"></i>${b.products.length} produto(s)</span>
+                    <div class="flex gap-1" onclick="event.stopPropagation()">
+                        <button onclick="cloneBook('${b.id}')" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-cyan-400 transition" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
+                        <button onclick="openEditBook('${b.id}')" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-blue-400 transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="confirmDeleteBook('${b.id}')" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-rose-400 transition" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    updateCompareBadge();
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+}
+
+/* ========= COMPARE SELECTION ========= */
+function toggleCompare(id) {
+    if (state.selectedForCompare.has(id)) state.selectedForCompare.delete(id);
+    else state.selectedForCompare.add(id);
+    updateCompareBadge();
+    renderLibrary();
+}
+
+function clearCompareSelection() {
+    state.selectedForCompare.clear();
+    updateCompareBadge();
+    renderLibrary();
+    renderCompare();
+}
+
+function updateCompareBadge() {
+    const n = state.selectedForCompare.size;
+    const badge = document.getElementById('compareCount');
+    const float = document.getElementById('floatCompare');
+    const floatCount = document.getElementById('floatCount');
+    if (n > 0) { badge.classList.remove('hidden'); badge.innerText = n; }
+    else badge.classList.add('hidden');
+    if (n >= 2) { float.classList.remove('hidden'); floatCount.innerText = n; }
+    else float.classList.add('hidden');
+}
+
+/* ========= BOOK MODAL ========= */
+function openNewBookManual() {
+    document.getElementById('modalBookTitle').innerText = 'Novo Livro';
+    document.getElementById('bookForm').reset();
+    document.getElementById('editBookId').value = '';
+    document.getElementById('bookCode').value = nextBookCode();
+    openModal('modalBook');
+}
+
+function openEditBook(id) {
+    const b = state.books.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('modalBookTitle').innerText = 'Editar Livro';
+    document.getElementById('editBookId').value = id;
+    document.getElementById('bookCode').value = b.code;
+    document.getElementById('bookTitle').value = b.title;
+    document.getElementById('bookType').value = b.type;
+    document.getElementById('bookTags').value = (b.tags || []).join(', ');
+    document.getElementById('bookNotes').value = b.notes || '';
+    openModal('modalBook');
+}
+
+function saveBook(e) {
+    e.preventDefault();
+    const editId = document.getElementById('editBookId').value;
+    const code = document.getElementById('bookCode').value.trim();
+    const title = document.getElementById('bookTitle').value.trim();
+    const type = document.getElementById('bookType').value;
+    const tagsRaw = document.getElementById('bookTags').value;
+    const notes = document.getElementById('bookNotes').value.trim();
+
+    // uniqueness of code
+    const collision = state.books.find(b => b.code.toLowerCase() === code.toLowerCase() && b.id !== editId);
+    if (collision) { showToast('Código já existe. Use outro.'); return; }
+
+    const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+
+    if (editId) {
+        const b = state.books.find(x => x.id === editId);
+        if (b) { b.code = code; b.title = title; b.type = type; b.tags = tags; b.notes = notes; b.updatedAt = new Date().toISOString(); }
+    } else {
+        state.books.push({
+            id: 'bk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            code, title, type, tags, notes,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            scenario: 100, leftoverRate: 0, lossMargin: 0,
+            faturamento: 0, custos: 0, lucro: 0, products: []
+        });
+    }
+    saveBooks();
+    closeModal('modalBook');
+    renderLibrary();
+    if (state.currentTab === 'detail') renderDetail();
+    showToast('Livro salvo.');
+}
+
+function cloneBook(id) {
+    const b = state.books.find(x => x.id === id);
+    if (!b) return;
+    const copy = JSON.parse(JSON.stringify(b));
+    copy.id = 'bk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    copy.code = nextBookCode();
+    copy.title = b.title + ' (cópia)';
+    copy.createdAt = new Date().toISOString();
+    copy.updatedAt = new Date().toISOString();
+    state.books.push(copy);
+    saveBooks();
+    renderLibrary();
+    showToast('Livro duplicado como ' + copy.code);
+}
+
+function confirmDeleteBook(id) {
+    const b = state.books.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('confirmTitle').innerText = `Excluir ${b.code}?`;
+    document.getElementById('confirmMessage').innerText = `"${b.title}" será removido permanentemente da biblioteca.`;
+    document.getElementById('confirmActionBtn').onclick = () => { deleteBook(id); closeModal('modalConfirm'); };
+    openModal('modalConfirm');
+}
+
+function deleteBook(id) {
+    state.books = state.books.filter(b => b.id !== id);
+    state.selectedForCompare.delete(id);
+    if (state.activeBookId === id) { state.activeBookId = null; }
+    saveBooks();
+    updateCompareBadge();
+    renderLibrary();
+    if (state.currentTab === 'detail') switchTab('library');
+    showToast('Livro excluído.');
+}
+
+/* ========= DETAIL VIEW ========= */
+function openDetail(id) {
+    state.activeBookId = id;
+    switchTab('detail');
+}
+
+function editActiveBook() {
+    if (!state.activeBookId) return;
+    openEditBook(state.activeBookId);
+}
+
+function deleteActiveBook() {
+    if (!state.activeBookId) return;
+    confirmDeleteBook(state.activeBookId);
+}
+
+function renderDetail() {
+    const b = state.books.find(x => x.id === state.activeBookId);
+    if (!b) { switchTab('library'); return; }
+    const eb = enrichBook(b);
+    const t = BOOK_TYPES[b.type] || BOOK_TYPES.simulacao;
+    const lucroColor = eb.lucro >= 0 ? 'text-emerald-400' : 'text-rose-400';
+
+    const productRows = b.products.map(p => {
+        const ctu = p.qty > 0 ? (p.cud || 0) : 0;
+        const profitUnit = (p.price || 0) - ctu;
+        const margin = p.price > 0 ? (profitUnit / p.price) * 100 : 0;
+        return `
+            <tr class="hover:bg-obsidian-900/80 transition">
+                <td class="p-2.5 font-semibold text-white">${escapeHtml(p.name)}</td>
+                <td class="p-2.5 text-center text-gray-300">${formatCurrency(p.cud)}</td>
+                <td class="p-2.5 text-center text-gray-300">${formatCurrency(p.price)}</td>
+                <td class="p-2.5 text-center font-bold text-cyan-400">${p.qty} un</td>
+                <td class="p-2.5 text-center ${margin >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-semibold">${formatPercent(margin)}</td>
+                <td class="p-2.5 text-right font-bold ${p.revenue >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(p.revenue)}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" class="p-4 text-center text-gray-500 italic">Nenhum produto neste livro.</td></tr>';
+
+    document.getElementById('detailContent').innerHTML = `
+        <div class="glass-card rounded-2xl p-4">
+            <div class="flex items-start justify-between gap-2 flex-wrap">
+                <div>
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <span class="font-mono text-xs font-bold text-violet-300 px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/20">${b.code}</span>
+                        <span class="badge-type ${t.bg} ${t.color} ${t.border} border"><i class="fa-solid ${t.icon}"></i>${t.label}</span>
+                    </div>
+                    <h2 class="text-lg font-bold text-white">${escapeHtml(b.title)}</h2>
+                    <p class="text-[11px] text-gray-400">Criado em ${formatDate(b.createdAt)}</p>
+                </div>
+            </div>
+            ${(b.tags && b.tags.length) ? `<div class="flex flex-wrap gap-1 mt-2">${b.tags.map(tag => `<span class="text-[10px] text-violet-300 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded">#${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+            ${b.notes ? `<p class="text-xs text-gray-300 mt-2 p-2 bg-obsidian-950 rounded-lg border border-gray-800">${escapeHtml(b.notes)}</p>` : ''}
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="glass-card rounded-xl p-3 border-l-4 border-l-cyan-500">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Faturamento</span>
+                <div class="text-base font-extrabold text-cyan-400 mt-1">${formatCurrency(eb.faturamento)}</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 border-l-4 border-l-rose-500">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Custos Totais</span>
+                <div class="text-base font-extrabold text-rose-400 mt-1">${formatCurrency(eb.custos)}</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 border-l-4 border-l-emerald-500">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Lucro Líquido</span>
+                <div class="text-base font-extrabold ${lucroColor} mt-1">${formatCurrency(eb.lucro)}</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 border-l-4 border-l-amber-500">
+                <span class="text-[10px] text-gray-400 uppercase font-semibold">Margem</span>
+                <div class="text-base font-extrabold ${eb.margem >= 0 ? 'text-emerald-400' : 'text-rose-400'} mt-1">${formatPercent(eb.margem)}</div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-4">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-file-invoice-dollar text-emerald-400 mr-1.5"></i>DRE Resumido</h3>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px]">
+                <div class="p-2.5 rounded-lg bg-obsidian-950 border border-gray-800"><span class="text-gray-400 block">1. Faturamento</span><span class="text-sm font-bold text-cyan-400 mt-1 block">${formatCurrency(eb.faturamento)}</span></div>
+                <div class="p-2.5 rounded-lg bg-obsidian-950 border border-gray-800"><span class="text-gray-400 block">2. (-) Custos Diretos</span><span class="text-sm font-bold text-rose-400 mt-1 block">${formatCurrency(eb.directCost)}</span></div>
+                <div class="p-2.5 rounded-lg bg-obsidian-950 border border-gray-800"><span class="text-gray-400 block">3. (=) Margem Contrib.</span><span class="text-sm font-bold text-blue-400 mt-1 block">${formatCurrency(eb.faturamento - eb.directCost)}</span></div>
+                <div class="p-2.5 rounded-lg bg-obsidian-950 border border-gray-800"><span class="text-gray-400 block">4. (-) Custos Indiretos</span><span class="text-sm font-bold text-amber-400 mt-1 block">${formatCurrency(eb.indirectCost)}</span></div>
+                <div class="p-2.5 rounded-lg bg-obsidian-950 border border-emerald-500/30"><span class="text-emerald-400 block font-semibold">5. (=) Lucro</span><span class="text-sm font-extrabold ${lucroColor} mt-1 block">${formatCurrency(eb.lucro)}</span></div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-4">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3"><i class="fa-solid fa-utensils text-cyan-400 mr-1.5"></i>Produtos (${b.products.length})</h3>
+            <div class="overflow-x-auto rounded-lg border border-gray-800">
+                <table class="w-full text-xs text-gray-300">
+                    <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase text-[10px] border-b border-gray-800">
+                        <tr>
+                            <th class="p-2.5 text-left">Produto</th>
+                            <th class="p-2.5 text-center">CUD</th>
+                            <th class="p-2.5 text-center">Preço</th>
+                            <th class="p-2.5 text-center">Qtd</th>
+                            <th class="p-2.5 text-center">Margem</th>
+                            <th class="p-2.5 text-right">Faturamento</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/60 bg-obsidian-900/50">${productRows}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+            <div class="glass-card rounded-lg p-2.5"><span class="text-gray-500 block text-[9px]">Cenário</span><span class="font-bold text-cyan-400">${b.scenario || 0}%</span></div>
+            <div class="glass-card rounded-lg p-2.5"><span class="text-gray-500 block text-[9px]">Taxa de Sobra</span><span class="font-bold text-rose-400">${b.leftoverRate || 0}%</span></div>
+            <div class="glass-card rounded-lg p-2.5"><span class="text-gray-500 block text-[9px]">Buffer Imprevistos</span><span class="font-bold text-amber-400">${b.lossMargin || 0}%</span></div>
+            <div class="glass-card rounded-lg p-2.5"><span class="text-gray-500 block text-[9px]">Total Unidades</span><span class="font-bold text-violet-400">${formatNumber(eb.totalUnits)}</span></div>
+        </div>
+    `;
+}
+
+/* ========= COMPARE VIEW ========= */
+function renderCompare() {
+    const ids = Array.from(state.selectedForCompare);
+    const empty = document.getElementById('compareEmpty');
+    const content = document.getElementById('compareContent');
+
+    if (ids.length < 2) {
+        empty.classList.remove('hidden');
+        content.classList.add('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    content.classList.remove('hidden');
+
+    const books = state.books.filter(b => ids.includes(b.id)).map(enrichBook);
+    if (books.length < 2) { empty.classList.remove('hidden'); content.classList.add('hidden'); return; }
+
+    // Chips
+    document.getElementById('compareChips').innerHTML = books.map(b => {
+        const t = BOOK_TYPES[b.type] || BOOK_TYPES.simulacao;
+        return `<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-obsidian-950 border border-gray-800 text-gray-300">
+            <span class="font-mono text-violet-300">${b.code}</span> · ${escapeHtml(b.title)}
+            <button onclick="toggleCompare('${b.id}'); renderCompare();" class="text-rose-400 hover:text-rose-300 ml-0.5"><i class="fa-solid fa-xmark"></i></button>
+        </span>`;
+    }).join('');
+
+    // ===== KPI table =====
+    const metrics = [
+        { key: 'faturamento', label: 'Faturamento', fmt: formatCurrency, color: 'text-cyan-400' },
+        { key: 'custos', label: 'Custos Totais', fmt: formatCurrency, color: 'text-rose-400' },
+        { key: 'directCost', label: '↳ Custos Diretos', fmt: formatCurrency, color: 'text-rose-300' },
+        { key: 'indirectCost', label: '↳ Custos Indiretos', fmt: formatCurrency, color: 'text-amber-400' },
+        { key: 'lucro', label: 'Lucro Líquido', fmt: formatCurrency, color: 'text-emerald-400' },
+        { key: 'margem', label: 'Margem (%)', fmt: formatPercent, color: 'text-emerald-400' },
+        { key: 'totalUnits', label: 'Total Unidades', fmt: formatNumber, color: 'text-violet-400' },
+        { key: 'avgPrice', label: 'Preço Médio', fmt: formatCurrency, color: 'text-gray-300' },
+        { key: 'custoPorUnidade', label: 'Custo / Unidade', fmt: formatCurrency, color: 'text-gray-300' },
+        { key: 'lucroPorUnidade', label: 'Lucro / Unidade', fmt: formatCurrency, color: 'text-emerald-300' },
+        { key: 'scenario', label: 'Cenário (%)', fmt: (v) => (v || 0) + '%', color: 'text-gray-300' },
+        { key: 'leftoverRate', label: 'Sobra (%)', fmt: (v) => (v || 0) + '%', color: 'text-gray-300' }
+    ];
+
+    const table = document.getElementById('compareTable');
+    table.querySelector('thead').innerHTML = `
+        <tr>
+            <th class="p-2.5 text-left sticky left-0 bg-obsidian-950 z-10 min-w-[130px]">Métrica</th>
+            ${books.map(b => `<th class="p-2.5 text-center min-w-[110px]">${b.code}</th>`).join('')}
+            <th class="p-2.5 text-center min-w-[90px] bg-violet-500/10">Δ (max-min)</th>
+        </tr>
+    `;
+
+    table.querySelector('tbody').innerHTML = metrics.map(m => {
+        const values = books.map(b => Number(b[m.key]) || 0);
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        const delta = max - min;
+        const deltaDisplay = m.fmt === formatPercent ? formatPercent(delta) : m.fmt === formatNumber ? formatNumber(delta) : formatCurrency(delta);
+
+        return `
+            <tr class="hover:bg-obsidian-900/80 transition">
+                <td class="p-2.5 font-semibold text-gray-300 sticky left-0 bg-obsidian-900 z-10">${m.label}</td>
+                ${books.map(b => {
+                    const v = Number(b[m.key]) || 0;
+                    const isMax = books.length > 1 && v === max && max !== min;
+                    return `<td class="p-2.5 text-center font-semibold ${isMax ? m.color : 'text-gray-300'}">${m.fmt(v)}${isMax ? ' ★' : ''}</td>`;
+                }).join('')}
+                <td class="p-2.5 text-center font-bold text-violet-300 bg-violet-500/5">${delta === 0 ? '—' : deltaDisplay}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // ===== Charts =====
+    const labels = books.map(b => b.code);
+    const faturamentoData = books.map(b => b.faturamento);
+    const custosData = books.map(b => b.custos);
+    const lucroData = books.map(b => b.lucro);
+    const margemData = books.map(b => b.margem);
+
+    if (chartCompareValue) chartCompareValue.destroy();
+    chartCompareValue = new Chart(document.getElementById('chartCompareValue').getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [
+            { label: 'Faturamento', data: faturamentoData, backgroundColor: '#06b6d4', borderRadius: 4 },
+            { label: 'Custos', data: custosData, backgroundColor: '#f43f5e', borderRadius: 4 },
+            { label: 'Lucro', data: lucroData, backgroundColor: '#10b981', borderRadius: 4 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false,
+            scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+                      y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } },
+            plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } } }
+    });
+
+    if (chartCompareMargin) chartCompareMargin.destroy();
+    chartCompareMargin = new Chart(document.getElementById('chartCompareMargin').getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [
+            { label: 'Margem (%)', data: margemData, backgroundColor: margemData.map(v => v >= 0 ? '#10b981' : '#f43f5e'), borderRadius: 4 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                      y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } } },
+            plugins: { legend: { display: false } } }
+    });
+
+    // ===== Products comparison =====
+    const allProducts = new Set();
+    books.forEach(b => b.products.forEach(p => allProducts.add(p.name)));
+    const productNames = Array.from(allProducts).sort();
+
+    const prodTable = document.getElementById('compareProductsTable');
+    prodTable.querySelector('thead').innerHTML = `
+        <tr>
+            <th class="p-2.5 text-left sticky left-0 bg-obsidian-950 z-10 min-w-[130px]">Produto</th>
+            ${books.map(b => `<th class="p-2.5 text-center min-w-[110px]">${b.code}</th>`).join('')}
+            <th class="p-2.5 text-right min-w-[100px]">Total</th>
+        </tr>
+    `;
+    prodTable.querySelector('tbody').innerHTML = productNames.map(name => {
+        const revenues = books.map(b => {
+            const p = b.products.find(x => x.name === name);
+            return p ? p.revenue : 0;
+        });
+        const total = revenues.reduce((s, v) => s + v, 0);
+        return `
+            <tr class="hover:bg-obsidian-900/80 transition">
+                <td class="p-2.5 font-semibold text-white sticky left-0 bg-obsidian-900 z-10">${escapeHtml(name)}</td>
+                ${revenues.map(v => `<td class="p-2.5 text-center ${v > 0 ? 'text-emerald-400 font-semibold' : 'text-gray-600'}">${v > 0 ? formatCurrency(v) : '—'}</td>`).join('')}
+                <td class="p-2.5 text-right font-bold text-violet-300">${formatCurrency(total)}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="' + (books.length + 2) + '" class="p-4 text-center text-gray-500 italic">Nenhum produto nos livros selecionados.</td></tr>';
+}
+
+/* ========= RAZÃO VIEW ========= */
+function renderRazao() {
+    const agg = {};
+    state.books.forEach(b => {
+        (b.products || []).forEach(p => {
+            const key = p.name;
+            if (!agg[key]) agg[key] = { name: key, books: new Set(), qty: 0, revenue: 0, cudSum: 0, priceSum: 0, entries: 0 };
+            agg[key].books.add(b.id);
+            agg[key].qty += p.qty || 0;
+            agg[key].revenue += p.revenue || 0;
+            agg[key].cudSum += p.cud || 0;
+            agg[key].priceSum += p.price || 0;
+            agg[key].entries += 1;
+        });
+    });
+
+    const products = Object.values(agg).map(p => ({
+        name: p.name,
+        bookCount: p.books.size,
+        qty: p.qty,
+        revenue: p.revenue,
+        cudAvg: p.entries > 0 ? p.cudSum / p.entries : 0,
+        priceAvg: p.entries > 0 ? p.priceSum / p.entries : 0,
+        marginAvg: p.entries > 0 ? ((p.priceSum - p.cudSum) / p.priceSum) * 100 : 0
+    })).sort((a, b) => b.revenue - a.revenue);
+
+    const summaryEl = document.getElementById('razaoSummary');
+    const totalRevenue = products.reduce((s, p) => s + p.revenue, 0);
+    const totalQty = products.reduce((s, p) => s + p.qty, 0);
+    summaryEl.innerHTML = `
+        <div class="glass-card rounded-lg p-2.5 border-l-4 border-l-violet-500">
+            <span class="text-[9px] text-gray-400 uppercase block">Produtos únicos</span>
+            <span class="text-sm font-bold text-violet-400">${products.length}</span>
+        </div>
+        <div class="glass-card rounded-lg p-2.5 border-l-4 border-l-cyan-500">
+            <span class="text-[9px] text-gray-400 uppercase block">Unidades (todos livros)</span>
+            <span class="text-sm font-bold text-cyan-400">${formatNumber(totalQty)}</span>
+        </div>
+        <div class="glass-card rounded-lg p-2.5 border-l-4 border-l-emerald-500">
+            <span class="text-[9px] text-gray-400 uppercase block">Faturamento acumulado</span>
+            <span class="text-sm font-bold text-emerald-400">${formatCurrency(totalRevenue)}</span>
+        </div>
+        <div class="glass-card rounded-lg p-2.5 border-l-4 border-l-amber-500">
+            <span class="text-[9px] text-gray-400 uppercase block">Livros catalogados</span>
+            <span class="text-sm font-bold text-amber-400">${state.books.length}</span>
+        </div>
+    `;
+
+    const body = document.getElementById('razaoTableBody');
+    if (products.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-gray-500 italic">Nenhum produto catalogado. Importe livros primeiro.</td></tr>';
+        return;
+    }
+    body.innerHTML = products.map(p => `
+        <tr class="hover:bg-obsidian-900/80 transition">
+            <td class="p-2.5 font-semibold text-white">${escapeHtml(p.name)}</td>
+            <td class="p-2.5 text-center text-violet-400 font-bold">${p.bookCount}</td>
+            <td class="p-2.5 text-center text-cyan-400 font-semibold">${formatNumber(p.qty)}</td>
+            <td class="p-2.5 text-center text-gray-300">${formatCurrency(p.cudAvg)}</td>
+            <td class="p-2.5 text-center text-gray-300">${formatCurrency(p.priceAvg)}</td>
+            <td class="p-2.5 text-center font-bold ${p.marginAvg >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatPercent(p.marginAvg)}</td>
+            <td class="p-2.5 text-right font-bold text-emerald-400">${formatCurrency(p.revenue)}</td>
+        </tr>
+    `).join('');
+
+    // Chart
+    if (chartRazao) chartRazao.destroy();
+    chartRazao = new Chart(document.getElementById('chartRazao').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: products.slice(0, 15).map(p => p.name),
+            datasets: [{ label: 'Faturamento Acumulado', data: products.slice(0, 15).map(p => p.revenue), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+            scales: { x: { ticks: { color: '#9ca3af', font: { size: 9 } }, grid: { display: false } },
+                      y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } },
+            plugins: { legend: { display: false } } }
+    });
+}
+
+/* ========= EXPORTS ========= */
+function exportBackup() {
+    if (state.books.length === 0) { showToast('Nada para exportar.'); return; }
+    const blob = new Blob([JSON.stringify(state.books, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CODEX_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup exportado.');
+}
+
+function restoreBackup(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        try {
+            const parsed = JSON.parse(evt.target.result);
+            if (!Array.isArray(parsed)) throw new Error('Formato inválido');
+            document.getElementById('confirmTitle').innerText = 'Restaurar backup?';
+            document.getElementById('confirmMessage').innerText = `${parsed.length} livro(s) serão adicionados (os atuais permanecem).`;
+            document.getElementById('confirmActionBtn').onclick = () => {
+                // ensure unique ids/codes
+                parsed.forEach(b => {
+                    if (!b.id || state.books.some(x => x.id === b.id)) {
+                        b.id = 'bk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+                    }
+                    if (state.books.some(x => x.code === b.code)) {
+                        b.code = nextBookCode();
+                    }
+                    b.createdAt = b.createdAt || new Date().toISOString();
+                    b.updatedAt = new Date().toISOString();
+                });
+                state.books = state.books.concat(parsed);
+                saveBooks();
+                renderLibrary();
+                closeModal('modalConfirm');
+                showToast(`${parsed.length} livro(s) restaurado(s).`);
+            };
+            openModal('modalConfirm');
+        } catch (err) {
+            showToast('Arquivo inválido.');
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+function exportCompareCSV() {
+    const books = state.books.filter(b => state.selectedForCompare.has(b.id)).map(enrichBook);
+    if (books.length < 2) return;
+    let csv = '\uFEFF';
+    csv += 'CODEX — Balancete Comparativo\n';
+    csv += `Gerado em ${new Date().toLocaleString('pt-BR')}\n\n`;
+    csv += 'MÉTRICA;' + books.map(b => b.code).join(';') + '\n';
+    const metrics = [
+        ['Título', b => b.title],
+        ['Tipo', b => BOOK_TYPES[b.type]?.label || b.type],
+        ['Data', b => formatDateShort(b.createdAt)],
+        ['Faturamento (R$)', b => b.faturamento.toFixed(2).replace('.', ',')],
+        ['Custos Totais (R$)', b => b.custos.toFixed(2).replace('.', ',')],
+        ['Custos Diretos (R$)', b => b.directCost.toFixed(2).replace('.', ',')],
+        ['Custos Indiretos (R$)', b => b.indirectCost.toFixed(2).replace('.', ',')],
+        ['Lucro Líquido (R$)', b => b.lucro.toFixed(2).replace('.', ',')],
+        ['Margem (%)', b => b.margem.toFixed(1).replace('.', ',')],
+        ['Total Unidades', b => b.totalUnits],
+        ['Cenário (%)', b => b.scenario || 0],
+        ['Sobra (%)', b => b.leftoverRate || 0]
+    ];
+    metrics.forEach(([label, fn]) => {
+        csv += label + ';' + books.map(fn).join(';') + '\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `CODEX_Comparativo_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    showToast('CSV comparativo exportado.');
+}
+
+function exportComparePDF() {
+    const books = state.books.filter(b => state.selectedForCompare.has(b.id)).map(enrichBook);
+    if (books.length < 2) return;
+    showToast('Gerando PDF...');
+
+    let rows = '';
+    const metrics = [
+        ['Faturamento', b => formatCurrency(b.faturamento)],
+        ['Custos Totais', b => formatCurrency(b.custos)],
+        ['Custos Diretos', b => formatCurrency(b.directCost)],
+        ['Custos Indiretos', b => formatCurrency(b.indirectCost)],
+        ['Lucro Líquido', b => formatCurrency(b.lucro)],
+        ['Margem', b => formatPercent(b.margem)],
+        ['Total Unidades', b => formatNumber(b.totalUnits)],
+        ['Cenário', b => (b.scenario || 0) + '%'],
+        ['Sobra', b => (b.leftoverRate || 0) + '%']
+    ];
+    metrics.forEach(([label, fn]) => {
+        rows += `<tr style="border-bottom:1px solid #e5e7eb; font-size:10px;">
+            <td style="padding:6px; font-weight:bold; background:#f9fafb;">${label}</td>
+            ${books.map(b => `<td style="padding:6px; text-align:center;">${fn(b)}</td>`).join('')}
+        </tr>`;
+    });
+
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:20px; font-family:Helvetica,Arial,sans-serif; color:#111827; background:#fff;';
+    container.innerHTML = `
+        <div style="border-bottom:2px solid #8b5cf6; padding-bottom:10px; margin-bottom:14px;">
+            <h1 style="margin:0; color:#080c14; font-size:18px; font-weight:900;">CODEX — Balancete Comparativo</h1>
+            <p style="margin:2px 0 0 0; color:#6b7280; font-size:10px;">Sistema de Livros Contábeis · ${books.length} livros comparados</p>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+            <thead><tr style="background:#0f172a; color:#fff; font-size:9px; text-transform:uppercase;">
+                <th style="padding:6px; text-align:left;">Métrica</th>
+                ${books.map(b => `<th style="padding:6px; text-align:center;">${b.code}</th>`).join('')}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <div style="margin-top:20px; border-top:1px solid #e2e8f0; padding-top:8px; font-size:9px; color:#94a3b8; text-align:center;">
+            Gerado pelo CODEX em ${new Date().toLocaleString('pt-BR')}.
+        </div>`;
+    document.body.appendChild(container);
+    html2pdf().set({
+        margin: [8, 8, 8, 8], filename: `CODEX_Comparativo_${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    }).from(container).save().then(() => {
+        document.body.removeChild(container);
+        showToast('PDF comparativo exportado!');
+    });
+}
+
+/* ========= MODAL/TOAST ========= */
+function openModal(id) { const m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+function closeModal(id) { const m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').innerText = msg;
+    toast.classList.remove('translate-y-10', 'opacity-0');
+    setTimeout(() => toast.classList.add('translate-y-10', 'opacity-0'), 2600);
+}
+
+/* ========= INIT ========= */
+window.addEventListener('DOMContentLoaded', () => {
+    loadBooks();
+    updateCompareBadge();
+    switchTab('library');
+});
+</script>
+</body>
+</html>

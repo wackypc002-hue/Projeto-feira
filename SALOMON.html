@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SALOMON — Sistema de Análise Lógica Financeira</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: {
+                colors: { obsidian: {950:'#080c14',900:'#0f172a',800:'#1e293b',700:'#334155'},
+                    electric:'#3b82f6', neonCyan:'#06b6d4', emeraldAccent:'#10b981',
+                    amberAccent:'#f59e0b', crimsonAccent:'#ef4444' },
+                fontFamily: { sans: ['Inter', 'sans-serif'] }
+            }}
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family:'Inter',sans-serif; background:#080c14; color:#f3f4f6; -webkit-tap-highlight-color:transparent; }
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:#080c14; }
+        ::-webkit-scrollbar-thumb { background:#1e293b; border-radius:4px; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+        input[type=number] { -moz-appearance:textfield; }
+        input[type=range] { -webkit-appearance:none; background:#1e293b; border-radius:8px; height:8px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; height:22px; width:22px; border-radius:50%; background:#06b6d4; cursor:pointer; box-shadow:0 0 10px rgba(6,182,212,.5); border:2px solid #fff; }
+        input[type=range].rose::-webkit-slider-thumb { background:#f43f5e; box-shadow:0 0 10px rgba(244,63,94,.5); }
+        .glass-card { background:rgba(15,23,42,.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08); }
+        .touch-target { min-height:44px; min-width:44px; }
+    </style>
+</head>
+<body class="min-h-screen pb-16">
+
+<header class="sticky top-0 z-40 bg-obsidian-950/90 backdrop-blur-md border-b border-gray-800/80 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white leading-tight flex items-center gap-2">
+                    SALOMON
+                    <span id="autoSaveBadge" class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Salvo
+                    </span>
+                </h1>
+                <p class="text-[10px] text-gray-400 hidden sm:block">Análise Lógica para Orçamento, Mercado, Operação & Negócios</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="openModal('modalSiglas')" class="touch-target px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-lightbulb text-amber-400"></i><span class="hidden md:inline">Guia de</span> Siglas
+            </button>
+            <button onclick="exportToAriadneCSV()" class="touch-target px-3 py-2 text-xs font-semibold rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-csv text-purple-400"></i><span>Exportar para Ariadne</span>
+            </button>
+            <button onclick="downloadPDF()" class="touch-target px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-pdf text-cyan-400"></i><span class="hidden md:inline">Baixar</span> PDF
+            </button>
+            <button onclick="confirmReset()" class="touch-target px-2.5 py-2 text-xs font-semibold rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/20 flex items-center gap-1 transition">
+                <i class="fa-solid fa-rotate-left"></i><span class="hidden md:inline">Zerar</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-3 sm:px-6 pt-4 space-y-5">
+
+    <section class="glass-card rounded-2xl p-4 sm:p-5 border border-cyan-500/20 shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-cyan-400">Simulador de Cenários de Venda</h2>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Ajuste a escala do volume <strong class="text-gray-300">vendido</strong> para todos os produtos simultaneamente.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="setScenario(50)" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 transition">Pessimista (50%)</button>
+                <button onclick="setScenario(100)" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 transition">Esperado (100%)</button>
+                <button onclick="setScenario(150)" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 transition">Otimista (150%)</button>
+            </div>
+        </div>
+        <div class="mt-4 flex items-center gap-4">
+            <input type="range" id="scenarioSlider" min="20" max="200" step="5" value="100" class="w-full cursor-pointer accent-cyan-400" oninput="updateScenario(this.value)">
+            <span id="scenarioValueBadge" class="text-base font-extrabold px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 min-w-[70px] text-center">100%</span>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-cyan-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Faturamento Bruto</span>
+            <div class="mt-2"><span id="kpiFaturamento" class="text-lg sm:text-xl font-extrabold text-white">R$ 0,00</span><p class="text-[10px] text-gray-500 mt-0.5">Receita estimada total</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-red-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Custos Totais</span>
+            <div class="mt-2"><span id="kpiCustos" class="text-lg sm:text-xl font-extrabold text-red-400">R$ 0,00</span><p id="kpiCustosDetail" class="text-[10px] text-gray-500 mt-0.5">Diretos + Indiretos</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Lucro Líquido</span>
+            <div class="mt-2"><span id="kpiLucro" class="text-lg sm:text-xl font-extrabold text-emerald-400">R$ 0,00</span><p id="kpiMargemGlobal" class="text-[10px] font-semibold text-emerald-500 mt-0.5">Margem: 0,0%</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-amber-500 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Markup Médio</span>
+            <div class="mt-2"><span id="kpiMarkup" class="text-lg sm:text-xl font-extrabold text-amber-400">0,0%</span><p class="text-[10px] text-gray-500 mt-0.5">Multiplicador sobre custos</p></div>
+        </div>
+        <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-blue-500 col-span-2 md:col-span-1 flex flex-col justify-between">
+            <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Ponto de Equilíbrio</span>
+            <div class="mt-2"><span id="kpiBreakEvenQtd" class="text-base sm:text-lg font-bold text-blue-400">0 un</span><p id="kpiBreakEvenRS" class="text-[11px] font-semibold text-gray-300 mt-0.5">R$ 0,00 em vendas</p></div>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <section class="lg:col-span-4 glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-boxes-packing text-amber-400 text-sm"></i>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Custos Indiretos & Sobras</h3>
+                    </div>
+                    <span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-md font-semibold">Rateio Fixo</span>
+                </div>
+                <p class="text-xs text-gray-400 mb-4">Despesas operacionais rateadas entre as unidades <strong class="text-gray-300">vendidas</strong>.</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1"><i class="fa-solid fa-truck text-gray-400 mr-1"></i> Frete / Transporte (R$)</label>
+                        <input type="number" id="inputFrete" min="0" step="0.01" value="0" oninput="calculateAll()" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 focus:outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1"><i class="fa-solid fa-paint-roller text-gray-400 mr-1"></i> Decoração & Ambientação (R$)</label>
+                        <input type="number" id="inputDecoracao" min="0" step="0.01" value="0" oninput="calculateAll()" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 focus:outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1"><i class="fa-solid fa-sparkles text-gray-400 mr-1"></i> Limpeza & Higiene (R$)</label>
+                        <input type="number" id="inputLimpeza" min="0" step="0.01" value="0" oninput="calculateAll()" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 focus:outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-300 mb-1"><i class="fa-solid fa-list-check text-gray-400 mr-1"></i> Outros Custos Operacionais (R$)</label>
+                        <input type="number" id="inputOutros" min="0" step="0.01" value="0" oninput="calculateAll()" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-cyan-500 focus:outline-none transition">
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-800/70">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-gray-300"><i class="fa-solid fa-shield-cat text-amber-400 mr-1"></i> Buffer de Imprevistos (Custos Fixos)</label>
+                            <span id="lossMarginBadge" class="text-xs font-bold text-amber-400">0%</span>
+                        </div>
+                        <input type="range" id="sliderLossMargin" min="0" max="20" step="1" value="0" oninput="calculateAll()" class="w-full cursor-pointer accent-amber-400">
+                        <p class="text-[10px] text-gray-500 mt-1">Aumenta os custos indiretos por margem de segurança.</p>
+                    </div>
+
+                    <!-- NOVO: TAXA DE SOBRA -->
+                    <div class="pt-2 border-t border-gray-800/70">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-semibold text-gray-300"><i class="fa-solid fa-trash-can-arrow-up text-rose-400 mr-1"></i> Taxa de Sobra de Produtos</label>
+                            <span id="leftoverRateBadge" class="text-xs font-bold text-rose-400">0%</span>
+                        </div>
+                        <input type="range" id="sliderLeftoverRate" min="0" max="40" step="1" value="0" oninput="calculateAll()" class="w-full cursor-pointer rose accent-rose-400">
+                        <p class="text-[10px] text-gray-500 mt-1">
+                            % de produtos produzidos que <strong>não serão vendidos</strong>. O custo deles é redistribuído sobre as unidades vendidas.
+                        </p>
+                        <div id="leftoverImpactBox" class="mt-2 p-2 bg-rose-500/5 border border-rose-500/20 rounded-lg text-[10px] text-rose-300 hidden">
+                            <i class="fa-solid fa-circle-info mr-1"></i> Impacto: <strong id="leftoverImpactText">—</strong> no CUD efetivo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-5 p-3.5 bg-obsidian-950 rounded-xl border border-gray-800/80 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-gray-400 font-medium block">Total Custos Indiretos</span>
+                    <span class="text-[10px] text-gray-500">(Com buffer de imprevistos)</span>
+                </div>
+                <span id="totalCustosIndiretosDisplay" class="text-base font-extrabold text-amber-400">R$ 0,00</span>
+            </div>
+        </section>
+
+        <section class="lg:col-span-8 glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800 flex-wrap gap-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-utensils text-cyan-400 text-sm"></i>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Catálogo de Produtos & Precificação</h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadDemoData()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Carregar Exemplo
+                        </button>
+                        <button onclick="openAddProductModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-md shadow-cyan-500/20 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-plus"></i> Novo Produto
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3 p-2 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-[11px] text-cyan-300 flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    <span><strong>Quantidade Base</strong> = unidades que você espera <strong>vender</strong>. A produção real será maior se a Taxa de Sobra estiver ativa.</span>
+                </div>
+
+                <div id="mobileProductCards" class="block md:hidden space-y-3"></div>
+
+                <div class="hidden md:block overflow-x-auto rounded-xl border border-gray-800">
+                    <table class="w-full text-left text-xs text-gray-300">
+                        <thead class="bg-obsidian-950 text-gray-400 font-semibold uppercase tracking-wider border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">Produto</th>
+                                <th class="p-3 text-center min-w-[90px]">CUD Base</th>
+                                <th class="p-3 text-center min-w-[90px]">CUD Efetivo</th>
+                                <th class="p-3 text-center min-w-[90px]">Preço</th>
+                                <th class="p-3 text-center min-w-[80px]">Qtd Vend.</th>
+                                <th class="p-3 text-center">CTU</th>
+                                <th class="p-3 text-center">Lucro Unit.</th>
+                                <th class="p-3 text-center">Margem</th>
+                                <th class="p-3 text-center">Markup</th>
+                                <th class="p-3 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="desktopProductTable" class="divide-y divide-gray-800/60 bg-obsidian-900/50"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-gray-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-2">
+                <span id="catalogSummaryText">0 produtos cadastrados</span>
+                <span class="text-[11px] text-gray-500">* CUD Efetivo = CUD ÷ (1 − Taxa de Sobra) | CTU = CUD Efetivo + Rateio</span>
+            </div>
+        </section>
+    </div>
+
+    <section class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">DRE Resumido</h3>
+            </div>
+            <span class="text-[10px] text-gray-400 font-mono">Cenário: <span id="dreScenarioBadge" class="text-cyan-400 font-bold">100%</span></span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+            <div class="p-3 rounded-xl bg-obsidian-950 border border-gray-800"><span class="text-gray-400 font-medium block">1. Faturamento Bruto</span><span id="dreFaturamento" class="text-sm font-bold text-cyan-400 mt-1 block">R$ 0,00</span></div>
+            <div class="p-3 rounded-xl bg-obsidian-950 border border-gray-800"><span class="text-gray-400 font-medium block">2. (-) Custos Diretos</span><span id="dreCustosDiretos" class="text-sm font-bold text-rose-400 mt-1 block">R$ 0,00</span></div>
+            <div class="p-3 rounded-xl bg-obsidian-950 border border-gray-800"><span class="text-gray-400 font-medium block">3. (=) Margem Contribuição</span><span id="dreMargemContrib" class="text-sm font-bold text-blue-400 mt-1 block">R$ 0,00</span></div>
+            <div class="p-3 rounded-xl bg-obsidian-950 border border-gray-800"><span class="text-gray-400 font-medium block">4. (-) Custos Indiretos</span><span id="dreCustosIndiretos" class="text-sm font-bold text-amber-400 mt-1 block">R$ 0,00</span></div>
+            <div class="p-3 rounded-xl bg-obsidian-950 border border-emerald-500/30 bg-emerald-500/5"><span class="text-emerald-400 font-semibold block">5. (=) Lucro Líquido</span><span id="dreLucroLiquido" class="text-base font-extrabold text-emerald-400 mt-1 block">R$ 0,00</span></div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800 flex flex-col justify-between">
+            <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2 mb-3"><i class="fa-solid fa-chart-pie text-cyan-400"></i> Distribuição Financeira</h3>
+            <div class="relative h-60 sm:h-72 w-full flex items-center justify-center"><canvas id="chartDistribution"></canvas></div>
+        </div>
+        <div class="glass-card rounded-2xl p-4 sm:p-5 border border-gray-800 flex flex-col justify-between">
+            <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2 mb-3"><i class="fa-solid fa-chart-column text-emerald-400"></i> Comparativo por Produto</h3>
+            <div class="relative h-60 sm:h-72 w-full"><canvas id="chartProducts"></canvas></div>
+        </div>
+    </section>
+</main>
+
+<footer class="max-w-7xl mx-auto px-4 py-6 text-center text-xs text-gray-500">
+    <p>© SALOMON — Sistema de Análise Lógica Financeira • Mobile-First Engine v2.1</p>
+</footer>
+
+<!-- MODAL SIGLAS -->
+<div id="modalSiglas" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-obsidian-900 border border-gray-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative text-gray-200 my-8">
+        <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-lightbulb"></i></div>
+                <div>
+                    <h3 class="text-base font-bold text-white">Guia de Siglas & Lógica Matemática</h3>
+                    <p class="text-xs text-gray-400">Entenda os cálculos utilizados pelo SALOMON</p>
+                </div>
+            </div>
+            <button onclick="closeModal('modalSiglas')" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1 text-xs">
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-cyan-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-box text-cyan-400"></i> CUD — Custo Unitário Direto</h4>
+                <p class="text-gray-300 mt-1">Custo específico para produzir ou adquirir 1 unidade (matéria-prima, embalagem individual, mão de obra direta).</p>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-rose-500/40">
+                <h4 class="font-bold text-rose-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-trash-can-arrow-up"></i> Taxa de Sobra de Produtos <span class="text-[9px] bg-rose-500/20 px-1.5 py-0.5 rounded">NOVO</span></h4>
+                <p class="text-gray-300 mt-1">Percentual de produtos produzidos que <strong>não serão vendidos</strong> (quebra, validade, sobra). O custo desses itens é redistribuído sobre as unidades efetivamente vendidas.</p>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-rose-300">
+                    CUD Efetivo = CUD Base ÷ (1 − Taxa de Sobra)
+                </div>
+                <p class="text-[10px] text-gray-500 mt-2">Ex.: CUD R$ 2,00 com sobra de 10% → CUD Efetivo = 2,00 ÷ 0,90 = R$ 2,22.</p>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-amber-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-divide"></i> Rateio dos Custos Indiretos</h4>
+                <p class="text-gray-300 mt-1">Distribuição dos custos fixos/operacionais entre todas as unidades vendidas.</p>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-amber-300">Rateio Unitário = Custos Indiretos Totais / Total de Unidades Vendidas</div>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-blue-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-calculator"></i> CTU — Custo Total por Unidade</h4>
+                <p class="text-gray-300 mt-1">Custo direto efetivo + parcela de custos indiretos.</p>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-blue-300">CTU = CUD Efetivo + Rateio Unitário</div>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-amber-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-percent"></i> Markup (%)</h4>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-amber-300">Markup (%) = ((Preço − CTU) / CTU) × 100</div>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-emerald-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-chart-line"></i> Margem de Lucro (%)</h4>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-emerald-300">Margem (%) = ((Preço − CTU) / Preço) × 100</div>
+            </div>
+            <div class="p-3 bg-obsidian-950 rounded-xl border border-gray-800">
+                <h4 class="font-bold text-cyan-400 flex items-center gap-1.5 text-sm"><i class="fa-solid fa-scale-balanced"></i> Ponto de Equilíbrio (Break-Even)</h4>
+                <p class="text-gray-300 mt-1">Volume mínimo de <strong>vendas</strong> para cobrir 100% dos custos fixos, atingindo Lucro = R$ 0,00.</p>
+                <div class="mt-2 p-2 bg-obsidian-900 rounded border border-gray-800 text-[11px] font-mono text-cyan-300">Break-Even (Qtd) = Custos Indiretos / Margem de Contribuição Média Unitária</div>
+            </div>
+        </div>
+        <div class="mt-5 pt-3 border-t border-gray-800 text-right">
+            <button onclick="closeModal('modalSiglas')" class="px-4 py-2 text-xs font-bold rounded-xl bg-cyan-600 text-white hover:bg-cyan-500 transition">Entendido</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PRODUTO -->
+<div id="modalProduct" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-obsidian-900 border border-gray-800 rounded-2xl max-w-md w-full p-5 shadow-2xl relative text-gray-200">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <h3 id="modalProductTitle" class="text-base font-bold text-white">Adicionar Novo Produto</h3>
+            <button onclick="closeModal('modalProduct')" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="productForm" onsubmit="saveProduct(event)" class="mt-4 space-y-3">
+            <input type="hidden" id="editProductId">
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1">Nome do Produto</label>
+                <input type="text" id="prodName" required placeholder="Ex: Coxinha de Frango" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-xs text-white focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">CUD Base (R$)</label>
+                    <input type="number" id="prodCud" step="0.01" min="0" required placeholder="0,00" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Preço Venda (R$)</label>
+                    <input type="number" id="prodPrice" step="0.01" min="0" required placeholder="0,00" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1">Qtd Base Prevista (vendidas)</label>
+                <input type="number" id="prodQty" min="0" required placeholder="0" class="w-full bg-obsidian-950 border border-gray-800 rounded-xl p-3 text-xs text-white focus:border-cyan-500 focus:outline-none">
+            </div>
+            <div class="pt-3 flex gap-2">
+                <button type="button" onclick="closeModal('modalProduct')" class="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition">Cancelar</button>
+                <button type="submit" class="w-1/2 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 transition">Salvar Produto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL RESET -->
+<div id="modalReset" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-obsidian-900 border border-red-500/30 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative text-gray-200 text-center">
+        <div class="w-12 h-12 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center mx-auto mb-3 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 class="text-base font-bold text-white">Zerar Todos os Dados?</h3>
+        <p class="text-xs text-gray-400 mt-1">Redefine custos, preços, quantidades e taxas para ZERO.</p>
+        <div class="mt-5 flex gap-2">
+            <button onclick="closeModal('modalReset')" class="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 text-gray-300 hover:bg-gray-700 transition">Cancelar</button>
+            <button onclick="resetAllData()" class="w-1/2 py-2.5 text-xs font-bold rounded-xl bg-red-600 text-white hover:bg-red-500 transition">Sim, Zerar</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 z-50 translate-y-10 opacity-0 transition-all duration-300 pointer-events-none bg-obsidian-900 border border-cyan-500/40 text-cyan-300 text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i><span id="toastMsg">Notificação</span>
+</div>
+
+<script>
+// ========= STATE =========
+const DEFAULT_PRODUCTS = [
+    { id: '1', name: 'Coxinha', cud: 0, price: 0, qty: 0 },
+    { id: '2', name: 'Bomba', cud: 0, price: 0, qty: 0 },
+    { id: '3', name: 'Cachorro Quente', cud: 0, price: 0, qty: 0 },
+    { id: '4', name: 'Torta de Frango', cud: 0, price: 0, qty: 0 },
+    { id: '5', name: 'Salgado no Espeto', cud: 0, price: 0, qty: 0 }
+];
+
+let appState = {
+    scenario: 100,
+    indirectCosts: { frete: 0, decoracao: 0, limpeza: 0, outros: 0, lossMargin: 0, leftoverRate: 0 },
+    products: JSON.parse(JSON.stringify(DEFAULT_PRODUCTS))
+};
+
+let chartDist = null, chartProd = null;
+
+const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(val || 0);
+const formatPercent = (val) => (val || 0).toFixed(1).replace('.', ',') + '%';
+const brNumber = (val) => (val || 0).toFixed(2).replace('.', ',');
+
+// ========= INIT =========
+window.addEventListener('DOMContentLoaded', () => {
+    loadSavedState();
+    initCharts();
+    calculateAll();
+});
+
+function loadSavedState() {
+    const saved = localStorage.getItem('salomon_data_mobile_v2');
+    if (saved) {
+        try {
+            appState = JSON.parse(saved);
+            if (!appState.indirectCosts.leftoverRate) appState.indirectCosts.leftoverRate = 0;
+            document.getElementById('scenarioSlider').value = appState.scenario || 100;
+            document.getElementById('inputFrete').value = appState.indirectCosts.frete || 0;
+            document.getElementById('inputDecoracao').value = appState.indirectCosts.decoracao || 0;
+            document.getElementById('inputLimpeza').value = appState.indirectCosts.limpeza || 0;
+            document.getElementById('inputOutros').value = appState.indirectCosts.outros || 0;
+            document.getElementById('sliderLossMargin').value = appState.indirectCosts.lossMargin || 0;
+            document.getElementById('sliderLeftoverRate').value = appState.indirectCosts.leftoverRate || 0;
+        } catch(e) { console.error(e); }
+    }
+}
+
+function saveState() {
+    localStorage.setItem('salomon_data_mobile_v2', JSON.stringify(appState));
+    const badge = document.getElementById('autoSaveBadge');
+    badge.classList.remove('opacity-50');
+    setTimeout(() => badge.classList.add('opacity-50'), 1500);
+}
+
+function setScenario(val) { document.getElementById('scenarioSlider').value = val; updateScenario(val); }
+function updateScenario(val) {
+    appState.scenario = parseFloat(val) || 100;
+    document.getElementById('scenarioValueBadge').innerText = `${appState.scenario}%`;
+    calculateAll();
+}
+
+// ========= CORE ENGINE =========
+function calculateAll() {
+    // 1. Indirect costs
+    const frete = parseFloat(document.getElementById('inputFrete').value) || 0;
+    const decoracao = parseFloat(document.getElementById('inputDecoracao').value) || 0;
+    const limpeza = parseFloat(document.getElementById('inputLimpeza').value) || 0;
+    const outros = parseFloat(document.getElementById('inputOutros').value) || 0;
+    const lossMarginPct = parseFloat(document.getElementById('sliderLossMargin').value) || 0;
+    const leftoverRatePct = parseFloat(document.getElementById('sliderLeftoverRate').value) || 0;
+
+    appState.indirectCosts = { frete, decoracao, limpeza, outros, lossMargin: lossMarginPct, leftoverRate: leftoverRatePct };
+    document.getElementById('lossMarginBadge').innerText = `${lossMarginPct}%`;
+    document.getElementById('leftoverRateBadge').innerText = `${leftoverRatePct}%`;
+
+    // 2. Leftover impact box
+    const impactBox = document.getElementById('leftoverImpactBox');
+    if (leftoverRatePct > 0) {
+        impactBox.classList.remove('hidden');
+        const mult = 1 / (1 - leftoverRatePct / 100);
+        const pct = ((mult - 1) * 100).toFixed(1).replace('.', ',');
+        document.getElementById('leftoverImpactText').innerText = `+${pct}%`;
+    } else {
+        impactBox.classList.add('hidden');
+    }
+
+    const baseIndirectSum = frete + decoracao + limpeza + outros;
+    const totalCustosIndiretos = baseIndirectSum * (1 + (lossMarginPct / 100));
+    document.getElementById('totalCustosIndiretosDisplay').innerText = formatCurrency(totalCustosIndiretos);
+
+    // 3. Scenario + leftover multiplier
+    const scenarioMult = appState.scenario / 100;
+    const leftoverFactor = Math.max(0.1, 1 - leftoverRatePct / 100);
+    const effectiveCudMult = 1 / leftoverFactor;
+
+    // 4. Per-product volumes (qty = SOLD units)
+    let totalScaledUnits = 0, totalDirectCostsGeral = 0, totalFaturamentoGeral = 0;
+    let totalProducedUnits = 0;
+
+    const productCalculations = appState.products.map(p => {
+        const scaledQty = Math.round((p.qty || 0) * scenarioMult);
+        const effectiveCud = (p.cud || 0) * effectiveCudMult;
+        const directCostTotal = effectiveCud * scaledQty;
+        const revenueTotal = (p.price || 0) * scaledQty;
+        const producedQty = leftoverRatePct > 0 ? Math.round(scaledQty / leftoverFactor) : scaledQty;
+
+        totalScaledUnits += scaledQty;
+        totalProducedUnits += producedQty;
+        totalDirectCostsGeral += directCostTotal;
+        totalFaturamentoGeral += revenueTotal;
+
+        return { ...p, effectiveCud, scaledQty, producedQty, directCostTotal, revenueTotal };
+    });
+
+    // 5. Rateio (per SOLD unit)
+    const rateioUnitario = totalScaledUnits > 0 ? (totalCustosIndiretos / totalScaledUnits) : 0;
+
+    // 6. Final product metrics
+    const processedProducts = productCalculations.map(p => {
+        const ctu = p.effectiveCud + rateioUnitario;
+        const totalCostProduct = ctu * p.scaledQty;
+        const profitUnit = (p.price || 0) - ctu;
+        const profitTotal = profitUnit * p.scaledQty;
+        const marginPct = (p.price > 0) ? ((profitUnit / p.price) * 100) : 0;
+        const markupPct = (ctu > 0) ? ((profitUnit / ctu) * 100) : 0;
+        return { ...p, ctu, totalCostProduct, profitUnit, profitTotal, marginPct, markupPct };
+    });
+
+    // 7. Global totals
+    const totalCustosGerais = totalDirectCostsGeral + totalCustosIndiretos;
+    const lucroLiquidoGeral = totalFaturamentoGeral - totalCustosGerais;
+    const margemGlobalPct = (totalFaturamentoGeral > 0) ? ((lucroLiquidoGeral / totalFaturamentoGeral) * 100) : 0;
+    const markupMedioPct = (totalCustosGerais > 0) ? ((lucroLiquidoGeral / totalCustosGerais) * 100) : 0;
+
+    // 8. Break-even
+    let breakEvenUnits = 0, breakEvenRevenue = 0;
+    if (totalScaledUnits > 0 && totalFaturamentoGeral > 0) {
+        const avgPrice = totalFaturamentoGeral / totalScaledUnits;
+        const avgDirectCost = totalDirectCostsGeral / totalScaledUnits;
+        const avgContrib = avgPrice - avgDirectCost;
+        if (avgContrib > 0) {
+            breakEvenUnits = Math.ceil(totalCustosIndiretos / avgContrib);
+            breakEvenRevenue = breakEvenUnits * avgPrice;
+        }
+    }
+
+    // 9. KPIs
+    document.getElementById('kpiFaturamento').innerText = formatCurrency(totalFaturamentoGeral);
+    document.getElementById('kpiCustos').innerText = formatCurrency(totalCustosGerais);
+    document.getElementById('kpiCustosDetail').innerText = `Diretos: ${formatCurrency(totalDirectCostsGeral)} | Indiretos: ${formatCurrency(totalCustosIndiretos)}`;
+    const kpiLucroEl = document.getElementById('kpiLucro');
+    kpiLucroEl.innerText = formatCurrency(lucroLiquidoGeral);
+    kpiLucroEl.className = `text-lg sm:text-xl font-extrabold ${lucroLiquidoGeral >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    const kpiMargem = document.getElementById('kpiMargemGlobal');
+    kpiMargem.innerText = `Margem: ${formatPercent(margemGlobalPct)}`;
+    kpiMargem.className = `text-[10px] font-semibold ${margemGlobalPct >= 0 ? 'text-emerald-500' : 'text-rose-400'}`;
+    document.getElementById('kpiMarkup').innerText = formatPercent(markupMedioPct);
+    document.getElementById('kpiBreakEvenQtd').innerText = `${breakEvenUnits.toLocaleString('pt-BR')} un`;
+    document.getElementById('kpiBreakEvenRS').innerText = `${formatCurrency(breakEvenRevenue)} em vendas`;
+
+    // 10. DRE
+    document.getElementById('dreScenarioBadge').innerText = `${appState.scenario}%`;
+    document.getElementById('dreFaturamento').innerText = formatCurrency(totalFaturamentoGeral);
+    document.getElementById('dreCustosDiretos').innerText = `- ${formatCurrency(totalDirectCostsGeral)}`;
+    document.getElementById('dreMargemContrib').innerText = formatCurrency(totalFaturamentoGeral - totalDirectCostsGeral);
+    document.getElementById('dreCustosIndiretos').innerText = `- ${formatCurrency(totalCustosIndiretos)}`;
+    document.getElementById('dreLucroLiquido').innerText = formatCurrency(lucroLiquidoGeral);
+
+    // 11. Views & charts
+    renderProductViews(processedProducts);
+    updateCharts(totalFaturamentoGeral, totalDirectCostsGeral, totalCustosIndiretos, lucroLiquidoGeral, processedProducts);
+
+    saveState();
+}
+
+// ========= RENDER PRODUCTS =========
+function renderProductViews(products) {
+    const mobileContainer = document.getElementById('mobileProductCards');
+    const desktopContainer = document.getElementById('desktopProductTable');
+    document.getElementById('catalogSummaryText').innerText = `${products.length} produtos no catálogo (${appState.scenario}% do volume vendido)`;
+
+    mobileContainer.innerHTML = products.map(p => `
+        <div class="bg-obsidian-950 p-3.5 rounded-xl border border-gray-800/90 space-y-3">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="font-bold text-white text-sm flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> ${p.name}</span>
+                <div class="flex items-center gap-1">
+                    <button onclick="editProduct('${p.id}')" class="p-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-gray-700 text-xs"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteProduct('${p.id}')" class="p-1.5 rounded-lg bg-gray-800 text-red-400 hover:bg-gray-700 text-xs"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div><label class="text-[10px] text-gray-400 block font-medium">CUD Base</label>
+                    <input type="number" step="0.01" value="${p.cud}" onchange="updateProductInline('${p.id}', 'cud', this.value)" class="w-full bg-obsidian-900 border border-gray-800 rounded-lg p-2 text-xs text-white"></div>
+                <div><label class="text-[10px] text-gray-400 block font-medium">Preço</label>
+                    <input type="number" step="0.01" value="${p.price}" onchange="updateProductInline('${p.id}', 'price', this.value)" class="w-full bg-obsidian-900 border border-gray-800 rounded-lg p-2 text-xs text-white"></div>
+                <div><label class="text-[10px] text-gray-400 block font-medium">Qtd Vend.</label>
+                    <input type="number" value="${p.qty}" onchange="updateProductInline('${p.id}', 'qty', this.value)" class="w-full bg-obsidian-900 border border-gray-800 rounded-lg p-2 text-xs text-white"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[11px] bg-obsidian-900/60 p-2 rounded-lg border border-gray-800/50">
+                <div><span class="text-gray-500 block text-[9px]">CUD Efetivo</span><span class="font-semibold text-rose-300">${formatCurrency(p.effectiveCud)}</span></div>
+                <div><span class="text-gray-500 block text-[9px]">CTU</span><span class="font-semibold text-gray-200">${formatCurrency(p.ctu)}</span></div>
+                <div><span class="text-gray-500 block text-[9px]">Margem</span><span class="font-bold ${p.marginPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatPercent(p.marginPct)}</span></div>
+                <div><span class="text-gray-500 block text-[9px]">Lucro Total</span><span class="font-bold ${p.profitTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(p.profitTotal)}</span></div>
+            </div>
+            ${p.producedQty > p.scaledQty ? `<div class="text-[10px] text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Produzir <strong>${p.producedQty} un</strong> (sobra de ${p.producedQty - p.scaledQty})</div>` : ''}
+        </div>
+    `).join('');
+
+    desktopContainer.innerHTML = products.map(p => `
+        <tr class="hover:bg-obsidian-900/80 transition">
+            <td class="p-3 font-semibold text-white">${p.name}</td>
+            <td class="p-3 text-center"><input type="number" step="0.01" value="${p.cud}" onchange="updateProductInline('${p.id}', 'cud', this.value)" class="w-20 bg-obsidian-950 border border-gray-800 rounded p-1.5 text-center text-xs text-white"></td>
+            <td class="p-3 text-center text-rose-300 font-medium" title="CUD Base ÷ (1 − Taxa de Sobra)">${formatCurrency(p.effectiveCud)}</td>
+            <td class="p-3 text-center"><input type="number" step="0.01" value="${p.price}" onchange="updateProductInline('${p.id}', 'price', this.value)" class="w-20 bg-obsidian-950 border border-gray-800 rounded p-1.5 text-center text-xs text-white"></td>
+            <td class="p-3 text-center"><input type="number" value="${p.qty}" onchange="updateProductInline('${p.id}', 'qty', this.value)" class="w-16 bg-obsidian-950 border border-gray-800 rounded p-1.5 text-center text-xs text-white"></td>
+            <td class="p-3 text-center font-medium text-gray-300">${formatCurrency(p.ctu)}</td>
+            <td class="p-3 text-center font-semibold ${p.profitUnit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(p.profitUnit)}</td>
+            <td class="p-3 text-center font-bold ${p.marginPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatPercent(p.marginPct)}</td>
+            <td class="p-3 text-center font-semibold text-amber-400">${formatPercent(p.markupPct)}</td>
+            <td class="p-3 text-right">
+                <div class="flex items-center justify-end gap-1">
+                    <button onclick="editProduct('${p.id}')" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-blue-400"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteProduct('${p.id}')" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-red-400"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateProductInline(id, field, value) {
+    const product = appState.products.find(p => p.id === id);
+    if (product) { product[field] = parseFloat(value) || 0; calculateAll(); }
+}
+
+// ========= PRODUCT MODAL =========
+function openAddProductModal() {
+    document.getElementById('modalProductTitle').innerText = 'Adicionar Novo Produto';
+    document.getElementById('editProductId').value = '';
+    document.getElementById('productForm').reset();
+    openModal('modalProduct');
+}
+function editProduct(id) {
+    const p = appState.products.find(i => i.id === id); if (!p) return;
+    document.getElementById('modalProductTitle').innerText = 'Editar Produto';
+    document.getElementById('editProductId').value = p.id;
+    document.getElementById('prodName').value = p.name;
+    document.getElementById('prodCud').value = p.cud;
+    document.getElementById('prodPrice').value = p.price;
+    document.getElementById('prodQty').value = p.qty;
+    openModal('modalProduct');
+}
+function saveProduct(e) {
+    e.preventDefault();
+    const editId = document.getElementById('editProductId').value;
+    const name = document.getElementById('prodName').value.trim();
+    const cud = parseFloat(document.getElementById('prodCud').value) || 0;
+    const price = parseFloat(document.getElementById('prodPrice').value) || 0;
+    const qty = parseInt(document.getElementById('prodQty').value) || 0;
+    if (editId) {
+        const p = appState.products.find(i => i.id === editId);
+        if (p) { p.name = name; p.cud = cud; p.price = price; p.qty = qty; }
+    } else {
+        appState.products.push({ id: Date.now().toString(), name, cud, price, qty });
+    }
+    closeModal('modalProduct'); calculateAll(); showToast('Catálogo atualizado!');
+}
+function deleteProduct(id) {
+    if (appState.products.length <= 1) { showToast('Mantenha ao menos 1 produto.'); return; }
+    appState.products = appState.products.filter(p => p.id !== id);
+    calculateAll(); showToast('Produto removido.');
+}
+
+// ========= DEMO =========
+function loadDemoData() {
+    appState.indirectCosts = { frete: 120, decoracao: 80, limpeza: 50, outros: 30, lossMargin: 5, leftoverRate: 10 };
+    appState.products = [
+        { id: '1', name: 'Coxinha de Frango', cud: 2.20, price: 6.50, qty: 150 },
+        { id: '2', name: 'Bomba de Queijo', cud: 2.80, price: 7.00, qty: 100 },
+        { id: '3', name: 'Cachorro Quente', cud: 3.50, price: 9.00, qty: 80 },
+        { id: '4', name: 'Torta de Frango', cud: 4.00, price: 12.00, qty: 50 },
+        { id: '5', name: 'Salgado no Espeto', cud: 2.50, price: 7.50, qty: 120 }
+    ];
+    document.getElementById('inputFrete').value = 120;
+    document.getElementById('inputDecoracao').value = 80;
+    document.getElementById('inputLimpeza').value = 50;
+    document.getElementById('inputOutros').value = 30;
+    document.getElementById('sliderLossMargin').value = 5;
+    document.getElementById('sliderLeftoverRate').value = 10;
+    calculateAll(); showToast('Exemplo demonstrativo carregado!');
+}
+
+// ========= RESET =========
+function confirmReset() { openModal('modalReset'); }
+function resetAllData() {
+    appState.scenario = 100;
+    appState.indirectCosts = { frete: 0, decoracao: 0, limpeza: 0, outros: 0, lossMargin: 0, leftoverRate: 0 };
+    appState.products = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+    document.getElementById('scenarioSlider').value = 100;
+    document.getElementById('scenarioValueBadge').innerText = '100%';
+    ['inputFrete','inputDecoracao','inputLimpeza','inputOutros','sliderLossMargin','sliderLeftoverRate'].forEach(id => document.getElementById(id).value = 0);
+    closeModal('modalReset'); calculateAll(); showToast('Dados zerados.');
+}
+
+// ========= CHARTS =========
+function initCharts() {
+    chartDist = new Chart(document.getElementById('chartDistribution').getContext('2d'), {
+        type: 'doughnut',
+        data: { labels: ['Custos Diretos', 'Custos Indiretos', 'Lucro Líquido'],
+            datasets: [{ data: [0,0,0], backgroundColor: ['#ef4444','#f59e0b','#10b981'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } } },
+            cutout: '68%' }
+    });
+    chartProd = new Chart(document.getElementById('chartProducts').getContext('2d'), {
+        type: 'bar',
+        data: { labels: [], datasets: [
+            { label: 'Faturamento (R$)', data: [], backgroundColor: '#06b6d4', borderRadius: 4 },
+            { label: 'Custo Total (R$)', data: [], backgroundColor: '#f59e0b', borderRadius: 4 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false,
+            scales: { x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+                      y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } },
+            plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } } } }
+    });
+}
+function updateCharts(fat, cd, ci, ll, products) {
+    if (!chartDist || !chartProd) return;
+    chartDist.data.datasets[0].data = [Math.max(0, cd), Math.max(0, ci), Math.max(0, ll)];
+    chartDist.update();
+    chartProd.data.labels = products.map(p => p.name);
+    chartProd.data.datasets[0].data = products.map(p => p.revenueTotal);
+    chartProd.data.datasets[1].data = products.map(p => p.totalCostProduct);
+    chartProd.update();
+}
+
+// ========= CSV EXPORT (Ariadne) =========
+function exportToAriadneCSV() {
+    showToast('Gerando arquivo CSV...');
+    const scenarioMult = appState.scenario / 100;
+    const frete = parseFloat(document.getElementById('inputFrete').value) || 0;
+    const decoracao = parseFloat(document.getElementById('inputDecoracao').value) || 0;
+    const limpeza = parseFloat(document.getElementById('inputLimpeza').value) || 0;
+    const outros = parseFloat(document.getElementById('inputOutros').value) || 0;
+    const lossMarginPct = parseFloat(document.getElementById('sliderLossMargin').value) || 0;
+    const leftoverRatePct = parseFloat(document.getElementById('sliderLeftoverRate').value) || 0;
+
+    const baseIndirectSum = frete + decoracao + limpeza + outros;
+    const totalCustosIndiretos = baseIndirectSum * (1 + (lossMarginPct / 100));
+    const leftoverFactor = Math.max(0.1, 1 - leftoverRatePct / 100);
+    const effectiveCudMult = 1 / leftoverFactor;
+
+    let totalScaledUnits = 0, totalDirectCostsGeral = 0, totalFaturamentoGeral = 0;
+    const productCalcs = appState.products.map(p => {
+        const scaledQty = Math.round((p.qty || 0) * scenarioMult);
+        const effectiveCud = (p.cud || 0) * effectiveCudMult;
+        const directCostTotal = effectiveCud * scaledQty;
+        const revenueTotal = (p.price || 0) * scaledQty;
+        totalScaledUnits += scaledQty;
+        totalDirectCostsGeral += directCostTotal;
+        totalFaturamentoGeral += revenueTotal;
+        return { ...p, effectiveCud, scaledQty, directCostTotal, revenueTotal };
+    });
+
+    const rateioUnitario = totalScaledUnits > 0 ? (totalCustosIndiretos / totalScaledUnits) : 0;
+    const processed = productCalcs.map(p => {
+        const ctu = p.effectiveCud + rateioUnitario;
+        const profitUnit = (p.price || 0) - ctu;
+        return { ...p, ctu, profitUnit, profitTotal: profitUnit * p.scaledQty };
+    });
+    const totalCustosGerais = totalDirectCostsGeral + totalCustosIndiretos;
+    const lucroLiquidoGeral = totalFaturamentoGeral - totalCustosGerais;
+
+    let csv = "\uFEFF";
+    csv += "SALOMON - Relatório Financeiro Executivo\n";
+    csv += "Sistema de Análise Lógica para Orçamento, Mercado, Operação e Negócios\n";
+    csv += `Cenário de Vendas Aplicado: ${appState.scenario}%\n`;
+    csv += `Taxa de Sobra de Produtos: ${leftoverRatePct}%\n`;
+    csv += `Buffer de Imprevistos (Custos Indiretos): ${lossMarginPct}%\n`;
+    if (leftoverRatePct > 0) {
+        csv += `Observação: CUD na tabela abaixo é o CUD EFETIVO (já inclui rateio de sobra).\n`;
+    }
+    csv += "\n";
+
+    csv += "FATURAMENTO BRUTO | CUSTOS TOTAIS | LUCRO LÍQUIDO\n";
+    csv += `R$ ${brNumber(totalFaturamentoGeral)} | R$ ${brNumber(totalCustosGerais)} | R$ ${brNumber(lucroLiquidoGeral)}\n\n`;
+
+    csv += "Detalhamento de Produtos\n";
+    csv += "PRODUTO | CUD | PREÇO | QTD PROJETADA | FATURAMENTO TOTAL\n";
+    processed.forEach(p => {
+        csv += `${p.name} | R$ ${brNumber(p.effectiveCud)} | R$ ${brNumber(p.price)} | ${p.scaledQty} un | R$ ${brNumber(p.revenueTotal)}\n`;
+    });
+
+    csv += `\nRelatório gerado automaticamente pelo SALOMON Mobile Engine v2.1 em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `SALOMON_Simulacao_Ariadne_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    showToast('Dados exportados para Ariadne (.CSV)!');
+}
+
+// ========= PDF =========
+function downloadPDF() {
+    showToast('Compilando relatório PDF...');
+    const leftoverRatePct = parseFloat(document.getElementById('sliderLeftoverRate').value) || 0;
+    const lossMarginPct = parseFloat(document.getElementById('sliderLossMargin').value) || 0;
+    const leftoverFactor = Math.max(0.1, 1 - leftoverRatePct / 100);
+    const effectiveCudMult = 1 / leftoverFactor;
+
+    const totalCustosIndiretos = (appState.indirectCosts.frete + appState.indirectCosts.decoracao + appState.indirectCosts.limpeza + appState.indirectCosts.outros) * (1 + (appState.indirectCosts.lossMargin / 100));
+
+    let productRows = '';
+    let totalRev = 0, totalCost = 0;
+    appState.products.forEach(p => {
+        const scaledQty = Math.round(p.qty * (appState.scenario / 100));
+        const effCud = p.cud * effectiveCudMult;
+        const rev = p.price * scaledQty;
+        const cost = effCud * scaledQty;
+        totalRev += rev; totalCost += cost;
+        productRows += `<tr style="border-bottom:1px solid #e5e7eb; font-size:10px;">
+            <td style="padding:6px;">${p.name}</td>
+            <td style="padding:6px; text-align:center;">R$ ${p.cud.toFixed(2)}</td>
+            <td style="padding:6px; text-align:center; color:#b91c1c;">R$ ${effCud.toFixed(2)}</td>
+            <td style="padding:6px; text-align:center;">R$ ${p.price.toFixed(2)}</td>
+            <td style="padding:6px; text-align:center;">${scaledQty} un</td>
+            <td style="padding:6px; text-align:right;">R$ ${rev.toFixed(2)}</td>
+        </tr>`;
+    });
+    const totalGeralCosts = totalCost + totalCustosIndiretos;
+    const totalLucro = totalRev - totalGeralCosts;
+
+    const pdfContainer = document.createElement('div');
+    pdfContainer.style.padding = '20px';
+    pdfContainer.style.fontFamily = 'Helvetica, Arial, sans-serif';
+    pdfContainer.style.color = '#111827';
+    pdfContainer.style.backgroundColor = '#ffffff';
+    pdfContainer.innerHTML = `
+        <div style="border-bottom:2px solid #06b6d4; padding-bottom:10px; margin-bottom:15px;">
+            <h1 style="margin:0; color:#080c14; font-size:20px;">SALOMON — Relatório Financeiro Executivo</h1>
+            <p style="margin:3px 0 0 0; color:#6b7280; font-size:11px;">Sistema de Análise Lógica para Orçamento, Mercado, Operação e Negócios</p>
+            <p style="margin:3px 0 0 0; color:#06b6d4; font-size:10px; font-weight:bold;">Cenário de Vendas: ${appState.scenario}%</p>
+            ${leftoverRatePct > 0 ? `<p style="margin:3px 0 0 0; color:#be123c; font-size:10px; font-weight:bold;">Taxa de Sobra: ${leftoverRatePct}% — CUD Efetivo incluído</p>` : ''}
+            ${lossMarginPct > 0 ? `<p style="margin:3px 0 0 0; color:#b45309; font-size:10px; font-weight:bold;">Buffer de Imprevistos: ${lossMarginPct}%</p>` : ''}
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; background:#f9fafb; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
+            <div><span style="font-size:10px; color:#6b7280; display:block;">FATURAMENTO</span><strong style="font-size:14px; color:#0284c7;">R$ ${totalRev.toFixed(2)}</strong></div>
+            <div><span style="font-size:10px; color:#6b7280; display:block;">CUSTOS TOTAIS</span><strong style="font-size:14px; color:#dc2626;">R$ ${totalGeralCosts.toFixed(2)}</strong></div>
+            <div><span style="font-size:10px; color:#6b7280; display:block;">LUCRO LÍQUIDO</span><strong style="font-size:14px; color:${totalLucro >= 0 ? '#16a34a' : '#dc2626'};">R$ ${totalLucro.toFixed(2)}</strong></div>
+        </div>
+        <h3 style="font-size:12px; margin-bottom:8px; color:#1f2937;">Detalhamento de Produtos</h3>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+            <thead><tr style="background:#f3f4f6; font-size:10px; color:#4b5563; text-transform:uppercase;">
+                <th style="padding:6px; text-align:left;">Produto</th>
+                <th style="padding:6px; text-align:center;">CUD Base</th>
+                <th style="padding:6px; text-align:center;">CUD Efetivo</th>
+                <th style="padding:6px; text-align:center;">Preço</th>
+                <th style="padding:6px; text-align:center;">Qtd Vend.</th>
+                <th style="padding:6px; text-align:right;">Faturamento</th>
+            </tr></thead>
+            <tbody>${productRows}</tbody>
+        </table>
+        <div style="margin-top:30px; border-top:1px solid #e5e7eb; padding-top:10px; font-size:9px; color:#9ca3af; text-align:center;">
+            Relatório gerado pelo SALOMON v2.1 em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}.
+        </div>`;
+    document.body.appendChild(pdfContainer);
+    html2pdf().set({ margin:[10,10,10,10], filename:'Relatorio_SALOMON_Financeiro.pdf',
+        image:{ type:'jpeg', quality:0.98 }, html2canvas:{ scale:2, useCORS:true },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' } })
+        .from(pdfContainer).save().then(() => {
+            document.body.removeChild(pdfContainer); showToast('Relatório PDF baixado!');
+        });
+}
+
+// ========= UTILS =========
+function openModal(id) { const m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+function closeModal(id) { const m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').innerText = msg;
+    toast.classList.remove('translate-y-10', 'opacity-0');
+    setTimeout(() => toast.classList.add('translate-y-10', 'opacity-0'), 2500);
+}
+</script>
+</body>
+</html>
